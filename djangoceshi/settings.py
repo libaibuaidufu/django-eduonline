@@ -95,6 +95,7 @@ WSGI_APPLICATION = 'djangoceshi.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
 
+#数据库需要链接自己的数据库
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
