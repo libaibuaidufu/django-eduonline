@@ -148,12 +148,14 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static')
 ]
 
+#注意填写自己的帐号 如果使用的是网易邮箱 就可以使用下面的HOST
+#用户名和密码自己修改
 EMAIL_HOST = "smtp.163.com"
 EMAIL_PORT = 25
-EMAIL_HOST_USER = "13981963073@163.com"
-EMAIL_HOST_PASSWORD = '13981963073kai'
+EMAIL_HOST_USER = 'xxxxxx@163.com'
+EMAIL_HOST_PASSWORD = 'xxxxx'
 EMAIL_USER_TLS = False
-EMAIL_FROM = "13981963073@163.com"
+EMAIL_FROM = 'xxxxxx@163.com'
 
 MEDIA_URL = '/media/'
 # media根目录 只能设置一个
