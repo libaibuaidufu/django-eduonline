@@ -1,0 +1,137 @@
+机构列表
+organization
+
+首先定义一个urls
+# 课程机构
+url('^org_list/$', OrgView.as_view(), name='org_list'),
+OrgView 就是我们定义的视图 
+然后就在视图中
+
+定义OrgView
+定义一个get 方法 返回 我们的机构列表页面
+
+机构列表页面 我们使用了我们模版继承来减少我们的代码量
+
+首先定义一个base.html
+
+跟flask中jinjia模版差不多的 用法
+
+定义block 实现更改
+
+修改完了 
+我们就来看看前端页面需要展现那些东西
+
+首先就是我们的机构类别  由于机构类别比计较固定  可选用直接静态填写 不用从数据库中拿出来
+
+然后就是我们的城市类别  由于城市类别是一个多变的 所以最好我们还是从数据库中拿出来 方便以后添加的时候 就直接显示出来了
+
+然后就是我们的主体内容
+
+由于我们使用了模版继承 所以注意把每个块  都要定义到  方便修改
+机构列表中 有一个面包屑导航  我们要注意 
+
+然后就是 如何显示内容  
+
+这里我们先到xadmin中添加我们的 city 和 课程机构信息
+
+添加成功后
+
+下面进行视图 搜索
+
+我们就开始写我们的视图函数
+
+    def get(self, request):
+        # 课程机构
+        all_orgs = CourseOrg.objects.all()   #搜索出所有的课程机构
+        org_nums = all_orgs.count()   #总数
+        # 城市
+        all_citys = CityDict.objects.all()  #所有的城市
+        return render(request, 'org-list.html', {
+            'all_orgs': all_orgs,
+            'all_citys': all_citys,
+            'org_nums':org_nums,
+        })
+
+然后返回给我们前端 进行部署
+
+
+ <h2>机构类别</h2>  我们采用了直接写在了html中
+<h2>所在地区</h2> 这个我们采用for循环遍历 我们的城市信息
+
+{% for city in all_citys %}
+   <a href="?city=1&ct={{ city.name }}"><span class="">{{ city.name }}</span></a>
+{% endfor %}
+jinjia模版一样  可能 django 也是使用的进价模版  哈哈
+
+<div class="all">共<span class="key">{{ org_nums }}</span>家</div>
+显示有多少家课程
+
+然后就是主体信息了
+
+{% for course_org in all_orgs %}
+
+依然采用了 for循环  
+然后就进行修改一些信息 放上我们 表中的数据
+
+最主要的就是我们的 img logo显示了
+我们存储 logo的时候
+models 中的image字段
+    image = models.ImageField(upload_to="org/%Y/%m", verbose_name="logo",max_length=100)
+存储在org/%Y/%m  这个相对路径上 我们想存在 media文件下的 这个路径下
+所以我们先创建一个media 文件 然后 就可以存储了
+主要是怎么在前台显示这个路径下的图片呢 
+
+首先我们需要在 settings中进行配置
+MEDIA_URL = '/media/'
+#media根目录 只能设置一个
+MEDIA_ROOT = os.path.join(BASE_DIR,'media')
+
+只有这样配置了 存储的图片才会保存到我们的这个目录下
+
+设定MEDIA_URL路径
+同时还要在
+TEMPLATES
+	'OPTIONS'
+		'django.template.context_processors.media',
+
+django.core.context_processors.media  1.9可能使用的是这句
+在这个路径下配置  这段信息 把media 加入我们的文件中
+
+然后还要到urls中配置
+from django.views.static import serve
+from Mxonline.settings import MEDIA_ROOT
+
+ #配置上次文件的访问处理函数
+ url(r'^media/(?P<path>.*)$', serve, {"document_root":MEDIA_ROOT})
+配置一个访问函数   serve 是从django中调出来的一种方法 document_root  文件根目录 在 我们settings中配置的MEDIA_ROOT下
+
+这样就可以在 前端页面显示图片了
+data-url="{{ MEDIA_URL }}{{ course_org.image }}"
+MEDIA_URL就是settings 中配置的西诺西 course_org 使我们for循环的单个信息  中的image 我们iamge中存储的路径就是相对路径
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

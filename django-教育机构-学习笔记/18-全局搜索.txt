@@ -1,0 +1,149 @@
+先开始讲讲我们的 全局搜索吧
+
+网页开头有一个搜索  可以搜索  公开课 机构  和授课老师
+
+我们如何进行搜索呢 
+还有就是 我们点击搜索过后 需要进入我们的一个搜索结果的页面
+
+我们可以利用关键词进行搜索
+前端传送一个关键词给后台   后台进行过滤
+
+我们还是用我们以前的页面 这里我先说 taacher的搜索 其实那个搜索都一样 只要弄懂了一个 基本就都明白了
+
+class TeacherView(View):
+    def get(self, request):
+        # 获取所有教师
+        all_teachers = Teacher.objects.all()
+
+        # 热门推荐
+        hot_teahcers = Teacher.objects.order_by('-click_nums')[:2]
+
+        # 课程讲师搜索
+        search_keywords = request.GET.get('keywords', "")
+        if search_keywords:
+            all_teachers = all_teachers.filter(
+                Q(name__icontains=search_keywords) |
+                Q(work_company__icontains=search_keywords) |
+                Q(work_position__icontains=search_keywords))
+
+        # 人气排行
+        sort = request.GET.get('sort', "")
+        if sort:
+            if sort == 'hot':
+                all_teachers = all_teachers.order_by('-click_nums')
+
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+            # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_teachers, 3, request=request)
+        orgs = p.page(page)
+
+        return render(request, 'teachers-list.html', {
+            'all_teachers': orgs,
+            'hot_teahcers': hot_teahcers,
+            'sort': sort,
+        })
+
+上面这一段就是我们以前 进行teacher_list 的搜索 
+其中有一段使我们刚写的 
+	# 课程讲师搜索
+        search_keywords = request.GET.get('keywords', "")  #这里获取前端给的关键词
+        if search_keywords:  #如果存在
+            all_teachers = all_teachers.filter(           
+                Q(name__icontains=search_keywords) |         #模糊查询名字中包含此关键词的老师           
+                Q(work_company__icontains=search_keywords) |  #这是公司
+                Q(work_position__icontains=search_keywords))  #这是职位
+ #这里使用了django提供的一个模糊查询的方法  xx_icontains  xx就是我们需要查询的字段  contains就是包括的 i 就是不管大小写
+中间要使用双下划线  Q 就是我们所需要并集查询 
+
+然后在传递下去进行排序
+
+这样就实现了我们的搜索功能 其他两个类似 
+
+然后我们来说说前端
+		     <div class="selectContainer fl">
+                            <span class="selectOption" id="jsSelectOption" data-value="course">
+                                公开课
+                            </span>
+                            <ul class="selectMenu" id="jsSelectMenu">
+                                <li data-value="course">公开课</li>
+                                <li data-value="org">课程机构</li>
+                                <li data-value="teacher">授课老师</li>
+                            </ul>
+                        </div>
+                        <input id="search_keywords" class="fl" type="text" value="" placeholder="请输入搜索内容"/>
+                        <img class="search_btn fr" id="jsSearchBtn" src="{% static 'images/search_btn.png' %}"/>
+                    </div>
+这段就是我们前端的搜索框 
+利用了我们的ajax
+
+//顶部搜索栏搜索方法
+function search_click(){
+    var type = $('#jsSelectOption').attr('data-value'),  #上面公开课 li 中有一个vlaue就是来控制到底是向那个发送url keywords
+        keywords = $('#search_keywords').val(),   #定义一个方法  定一个变量  keywords 取值为那个id属性的文本里面的值
+        request_url = '';
+    if(keywords == ""){
+        return                  #如果关键词为空就什么都不做
+    }
+    if(type == "course"){       #如果type为这个  就是下面这个url
+        request_url = "/course/list?keywords="+keywords
+    }else if(type == "teacher"){
+        request_url = "/teacher_list?keywords="+keywords
+    }else if(type == "org"){
+        request_url = "/org/list?keywords="+keywords
+    }
+    window.location.href = request_url  #最后转向这个url 完成我们的搜索功能
+}
+
+
+然后就是有一个 页面选择状态的问题
+以前我是自己用了一个 has_true 来控制 这样十分麻烦
+
+现在学到了一个新方法  就是利用request 中的一个方法
+request.path  就是只当前url 例如 index 就是 / 而 course
+<li class="{% if request.path == '/' %}active{% endif %}"><a href="{% url 'index' %}">首页</a>
+</li>
+<li class="{% if request.path|slice:'7' == '/course' %}active{% endif %}">
+    <a href="{% url 'courses:course_list' %}">
+	 公开课<img class="hot" src="{% static 'images/nav_hot.png' %}">
+    </a>
+</li>
+request.path | slice：‘7’  类似就是切片的作用  取7个 字符 要跟 /course相等 就是选中状态 这就是我们定义include 的一个好处吧 
+ 这个course下的 所有页面都会被选中
+
+但是也要注意没有页面url 是否会被重复 写的时候要注意url的名字
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

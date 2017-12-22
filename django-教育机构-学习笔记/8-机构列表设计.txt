@@ -1,0 +1,195 @@
+上一篇  我们写了 前端部署 和简单的 内容显示
+
+现在我们来讲解一些 分页功能
+这里我们要使用一个库 pure pagination 在github中搜索 就可以能找到
+
+里面有详细的 讲解如何使用 这里我还是简单的说说一说
+首先安装
+pip install django-pure-pagination
+
+然后就是在settings中配置 apps
+INSTALLED_APPS = (
+    ...
+    'pure_pagination',
+)
+
+然后就是一些其他的配置 同样在settngs中 
+PAGINATION_SETTINGS = {
+    'PAGE_RANGE_DISPLAYED': 10,  #一排最多显示多少页  10页
+    'MARGIN_PAGES_DISPLAYED': 2,  #是否
+
+    'SHOW_FIRST_PAGE_WHEN_INVALID': True,
+}
+类似 1 2 .. 456789 .. 15 16 
+这样的布局
+
+这些都可以自己修改 然后就是在views 中部署
+
+from pure_pagination import Paginator, EmptyPage, PageNotAnInteger
+
+
+def index(request):
+
+    try:
+        page = request.GET.get('page', 1)  #获取页数
+    except PageNotAnInteger:
+        page = 1
+
+    objects = ['john', 'edward', 'josh', 'frank'] #需要分页的内容
+
+    # Provide Paginator with the request object for complete querystring generation
+
+    p = Paginator(objects, request=request)  #实例化
+
+    people = p.page(page)  #调用page方法
+
+    return render_to_response('index.html', {
+        'people': people,
+    }
+
+下面就这部分 我们对我们的实际来说明
+# 对课程机构进行分页
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+        # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_orgs, 5, request=request)  #all_orgs 就是上面的objcet ，5就是一页需要显示的内容
+        orgs = p.page(page) #调用page方法 进行分页
+
+然后就前端部署
+<div id="pagination">
+    {{ people.render }}
+</div>
+这是最简单的 但是却不能显示我们需要的样式  所以不推荐使用
+
+我们需要自定义我们的
+<div class="pagination">
+    {% if page_obj.has_previous %}  #如果有前一页 就显示 
+        <a href="?{{ page_obj.previous_page_number.querystring }}" class="prev">&lsaquo;&lsaquo; {% trans "previous" %}</a>
+    {% else %}#如果没有 就显示不能点击           #看上面这句 其中的href必须按照这样的写法写 我们只是修改page_obj为自己的
+        <span class="disabled prev">&lsaquo;&lsaquo; {% trans "previous" %}</span>
+    {% endif %}
+    {% for page in page_obj.pages %}#这里是主体内容
+        {% if page %}#如果有page
+            {% ifequal page page_obj.number %}  #同时当前页数 和 page相等
+                <span class="current page">{{ page }}</span> #当前页数 就无法点击 
+            {% else %}
+                <a href="?{{ page.querystring }}" class="page">{{ page }}</a>#如果不是 就可以点击
+            {% endifequal %}
+        {% else %}
+            ...#这里就是上面的 。。。号
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}#如果有下一页 就显示
+        <a href="?{{ page_obj.next_page_number.querystring }}" class="next">{% trans "next" %} &rsaquo;&rsaquo;</a>
+    {% else %}
+        <span class="disabled next">{% trans "next" %} &rsaquo;&rsaquo;</span>
+    {% endif %}
+</div>
+
+
+然后就可以实现分页
+
+然后就是 筛选了 
+class OrgView(View):
+    """
+    课程机构列表功能
+    """
+
+    def get(self, request):
+        # 课程机构   
+        all_orgs = CourseOrg.objects.all()#选出所有的课程
+        hot_orgs = all_orgs.order_by("-click_nums")[:3]
+        # 城市
+        all_citys = CityDict.objects.all()#所有的城市
+
+        # 取出筛选城市
+        city_id = request.GET.get('city', "")#如果用户选择了城市 获取城市的id
+        if city_id:
+            all_orgs = all_orgs.filter(city_id=int(city_id)) #过滤同样的城市 
+
+这里的city 是如何来的呢
+我们在后面 return的时候返回了我们的 all_citys然后遍历
+{% for city in all_citys %}
+    <a href="?city={{ city.id }}&ct={{ category }}"><span
+     class="{% ifequal city_id city.id|stringformat:'i' %}active2{% endifequal %}">{{ city.name }}</span></a>
+{% endfor %}
+其中这里面的链接 href  ？city= 就是传输了一个 参数 后台 就可以获取city=后面的值 这里我们使用的city.id 就是如果选中这个city 就会出现一个city.id值
+后台获取到了  就进行过滤  这里使用的 a = a+1 这种形式赋值  所以就等于过滤了  
+然后后面的ct  就是 类别筛选  例如 培训机构 or 个人 or 高校  
+同样的方法 在培训机构中的href 中加入 ct参数  然后获取 过滤
+小伙伴发现 这里我们并没有 return 机构类别的所有类  是因为 这几个选项比较固定 所以我们写在html代码中了
+<a href="?ct=pxjg&city={{ city_id }}"><span
+                                        class="{% ifequal category 'pxjg' %}active2{% endifequal %}">培训机构</span></a>
+就是上面这样 培训机构 这个类别 上 ct 已经直接写了我们的参数 所以没有在后台筛选所有类型 再来 for循环
+后面的筛选同理上面
+
+这里就还有一个 就是显示选中的问题
+就像上面一样 如果传入的 category 等于'pxjg' 就给 class 加上 一个 active2参数 这样就可以显示选中效果了
+同样要取消全部的显示效果 如果你选中了 单个 就不能在显示全部了
+<div class="cont">
+                                <a href="?city={{ city_id }}"><span
+                                        class="{% ifequal category '' %}active2{% endifequal %}">全部</span></a>
+这样 就可以使用 如果  前端没有进行 选中  后台city_id = request.GET.get('city', "")就会运行这句话 就是 如果没有city参数传过来 就为空
+然后就可以 如果后台传过来的 category 等于空 说明 后台没有 进行筛选 没有进行选中 所以 就要显示全部效果
+
+为了让所有分类都要进行显示
+就要在href中 把所有筛选的类别都加上  例如  有city ct 这两个
+后面的学习人数排序 和  课程人数排序
+他们只是一个排序方式 就不用加到 我们city 和ct 上了
+但是他们里面需要加上 city和ct
+
+但是我们需要 在page上的href加上这样的参数 也能显示  
+这就是 pure pagination厉害的地方 
+
+        # 类别筛选
+        category = request.GET.get('ct', '')
+        if category:
+            all_orgs = all_orgs.filter(category=category)
+
+        # 学习人数
+        sort = request.GET.get('sort', '')
+        if sort:
+            if sort == "students":
+                all_orgs = all_orgs.order_by('-students')#'-students' 就是倒叙排序
+            elif sort == 'courses':
+                all_orgs = all_orgs.order_by('-course_nums')
+
+        org_nums = all_orgs.count() #筛选完了 在进行计数  这样前端显示技术时 才够准确
+
+        # 对课程机构进行分页
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+        # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_orgs, 5, request=request)
+        orgs = p.page(page)
+        return render(request, 'org-list.html', {
+            'all_orgs': orgs,
+            'all_citys': all_citys,
+            'org_nums': org_nums,
+            'city_id': city_id,
+            'category': category,
+            'hot_orgs': hot_orgs,
+            'sort': sort,
+        })
+
+分页搞定了 筛选也搞定了  还有就是 旁边侧栏的  机构排名榜 这里我们使用点击数 来排名
+hot_orgs = all_orgs.order_by("-click_nums")[:3] 这里只筛选三个 出来
+然后就是部署
+{% for current_org in hot_orgs %}
+ <dl class="des">
+   <dt class="num fl">{{ forloop.counter }}</dt>   #这里是django的用法 可以显示 这是循环 第几次 来显示 排名
+     <dd>
+     <a href="/company/2/"><h1>{{ current_org.name }}</h1></a>  #显示机构名字
+     <p>{{ current_org.address }}</p>#机构地址
+   </dd>
+  </dl>
+{% endfor %}
+
+
+

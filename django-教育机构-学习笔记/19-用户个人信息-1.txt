@@ -1,0 +1,60 @@
+现在开始写一下  用户个人信息页面 
+
+首先肯定是配置我们的 前端页面 我们可以写一个userscenter_base模版
+让他们来继承 减少代码量
+
+首先开始的就是我们的userinfo 页面
+
+同样是继承 然后修改部分代码区域
+
+然后就是配置urls 
+# 用户信息
+    url('^info/$', UserInfoView.as_view(), name='user_info'),
+
+同样先在项目的urls 中配置include url 
+然后到app中配置
+class UserInfoView(LoginRequiredMixin, View):
+    '''
+    用户个人信息
+    '''
+
+    def get(self, request):
+        return render(request, 'usercenter-info.html', {})
+
+返回我们的 配置好的info页面  
+我们发现 这个页面只有用户登录才能进入 所以我们可以写一个用户登录的class
+django 本身给我们提供了 验证登陆的装饰器 但是我们的写的是一个类的方式来写views  
+
+所以不能用 我们可以  定义一个 class 来实现这个功能
+但是我发现 是不是 可以直接在get 或者post方法里面 直接上写一个@login_required 也行啊 我估计可以 
+
+但是我还是说一下class 写一个验证类
+
+我们卸载utils 中 就是我们写发送邮箱的那个目录下
+
+创一个叫做mixin_utils.py的文件
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+
+
+class LoginRequiredMixin(object):
+    @method_decorator(login_required(login_url='/login/'))
+    def dispatch(self, request, *args, **kwargs):
+        return super(LoginRequiredMixin, self).dispatch(request, *args, **kwargs)
+
+这里面其实也是写一个装饰器 继承我们的django提供登录验证装饰器
+然后在自己调用  相当于什么都没做 
+然后把这个类 放到 需要验证登陆的类里面 让他继承 就会提供验证  同时 这里的dispath必须这样写 不然不会有效果
+
+这样验证函数写好了 首页的信息页返回
+
+这里为什么我没有传送参数过去呢  毕竟首页需要显示很多个人信息
+
+你肯定忘了 我们的request.user了
+
+我当时也忘了 
+
+然后前端的信息 全部都用request.user 来写 注意 由于前端个人信息是一个form 所以可以在form中显示value的值 
+
+
+下一篇 我们将如何修改头像

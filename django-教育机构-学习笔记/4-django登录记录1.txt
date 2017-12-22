@@ -1,0 +1,135 @@
+首先配置我们的 index主页
+
+Django给我们提供了一个静态方法 不用写逻辑 也能运行
+
+在urls.py中这样配置
+from django.views.generic import TemplateView
+from django.conf.urls import url
+
+    url('^$', TemplateView.as_view(template_name='index.html'), name='index'),
+主页这里的的url里面不用填写 ，就可以直接访问127.0.0.1：8000 端口 就可以到index
+这里的index.html需要我们预先准备  name就是给它命名后面会很有用
+
+然后就由于 之前我们index是一个 静态文件 所以一些  js。css 等路径不对
+所以我们需要修改路径  我们自己创一个  static文件  把所有的js.css 等文件放入进去 
+然后就是使用 pycharm ctrl r 快捷键  全局替换  搜索 。。 替换为 static
+
+然后发现还是找不到我们的static文件  因为我们还要在settings中配置static路径
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static')
+)
+看英文就知道 static文件地址  利用和前面一样的方法 加入路径
+
+这样前端就可以显示了
+
+然后就是做登录了
+
+首先也同样可以用静态方法 TemplateView 来显示login.html
+
+但是这里要注意了  这里的url中 login/  前面不能加 /login/这样是错误的 无法显示
+    url('^login/$', TemplateView.as_view(template_name='login.html'), name='login')
+
+同样要修改 我们的  css。js 等文件
+
+如何实现从index中跳转到login中呢 
+我们可以在index。html 中
+把href改为 /login/这里需要加 /  这样我们在点击登录时 就可以实现跳转了
+<a style="color:white" class="fr loginbtn" href="/login/">登录</a>
+
+
+然后就是写登录逻辑  来实现登录了
+
+首先在views中定一个方法
+from django.contrib.auth import authenticate, login
+def user_login(request):         
+    if request.method == "POST": #如果是post请求 
+        user_name = request.POST.get("username", "")#从前台得到username
+        pass_word = request.POST.get("password", "")#password
+        user = authenticate(username=user_name, password=pass_word)#这里的authenticate是Django提供的一个验证方法，它可以验证用户名和密码，如果验证成功就给一个user，如果不成功 就是None
+        if user is not None:  #所以这个做一个判断  看user是否是None
+            login(request, user)    #如果不是  就是用django自己的 login方法 登录它 这就是为什么我们不实用login方法命名的原因 因为 这里我们使用了django自带的login 如果一样的命名 他就会调用我们定义的login导致错误
+            return render(request, 'index.html')  #然后返回一个页面
+        else:
+            return render(request, 'login.html', {"msg": "用户名或者密码错误！"})#如果密码错误 就返回登录界面 提示错误  这里使用的这种方式提示
+    elif request.method == "GET":
+        return render(request, 'login.html', {})  #如果是get请求 ，就返回登录的页面
+
+#这里为什么不叫login呢，因为 Django中又有一个login方法，如果使用了会导入Django使用方法错误
+登录有两个方法  一个是post请求 一个 get请求
+所以要做一个判断 
+
+但是这里只用使用用户名登录 如果我们想用email或者mobile 来验证呢
+
+django提供了一个修改 authenticate 的方法  我们可以自定义
+
+首先在settings中配置
+# Application definition
+AUTHENTICATION_BACKENDS = (
+    '',
+)
+验证 后台 这里的中文意思就是
+
+然后就是views定义一个类
+from django.contrib.auth.backends import ModelBackend
+from django.db.models import Q
+
+from .models import UserProfile
+
+
+class CustomBackend(ModelBackend):  #定义一个CustonBackend继承我们的 ModelBackend类  custom可以翻译为 定做 自定义
+    def authenticate(self, request, username=None, password=None, **kwargs):  #这里由于我们在前面配置了 他自动会出现后面参数 
+        try:         #这里我们就可以使用try来测试
+            user = UserProfile.objects.get(Q(username=username) | Q(email=username))    #这里使用django的搜索功能  从model UserProfile 中 objects.get get方法 只能获取一个值，如果出现两个 会报错，没有就是None
+											#这里的Q 就是django 提供的一个并集的作用  我们要允许用户名或者邮箱登录 就是用Q这样就可以 中间的|管道 就是并集 如果还有添加一个参数可以使用,然后添加一个交集
+            if user.check_password(password):         #如果用户存在 就是用django中的验证密码 
+                return user            #然后返回user
+        except Exception as e:       #如果报错就返回 None
+            return None
+
+这里返回了过后 又回到了我们的
+
+        user = authenticate(username=user_name, password=pass_word)#这一步 利用这个方法 返回的 user or None 为什么这里依然是有username呢 因为这个方法只能使用username 和 password命名 所以不管 email还是用户名都采用username赋值  也不需要修改 
+        if user is not None:
+            login(request, user)
+            return render(request, 'index.html')
+        else:
+            return render(request, 'login.html', {"msg": "用户名或者密码错误！"})      #前端返回错误信息 就是用 {{ msg }}
+    elif request.method == "GET":
+        return render(request, 'login.html', {})
+
+还有一点就是要在login.html中form表单中  
+<form action="/login/" method="post" autocomplete="off">
+把action 改为后台url /login/  方法一般都采用post
+
+注意我们前面使用的是静态方法 来实现的登录页面 现在我们已经实现了逻辑 所以要进行 urls 中 url的修改 也很简单
+    url('^login/$', user_login, name='login')
+把中间的Templates 修改为 user_login  方法名 就可以 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

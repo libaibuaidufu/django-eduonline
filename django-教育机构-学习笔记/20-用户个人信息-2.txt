@@ -1,0 +1,56 @@
+这里我们讲修改头像
+
+修改头像我们不需要 提供页面 
+
+这里直接就使用ajax 就可以处理了
+
+我们只需要配置一个url 然后写views
+# 用户头像上传
+    url('^image/upload/$', UploadImageView.as_view(), name='image_upload'),
+
+然后就是views
+由于提交头像 这也是一个表单
+
+所以我们先来定义我们的 forms
+class UploadImageForm(forms.ModelForm):
+
+    class Meta:
+        model = UserProfile
+        fields = ['image']
+
+很简单 继承modelform 然后class 一个Meta 告诉它 model的名字 和需要的字段
+
+然后就开始写views
+
+这里就有两个方法了 
+    #方法1  #form特性  form中有一个 cleaned_data 可以在debug中断点调试看见 cleaned_data这里面的数据都是验证通过了的
+    def post(self, request):
+        image_form = UploadImageForm(request.POST, request.FILES)
+        if image_form.is_valid():
+            image = image_form.cleaned_data['image']
+            request.user.image = image
+            request.user.save()
+
+    # 方法二 利用modelform的特性
+    def post(self, request):
+        image_form = UploadImageForm(request.POST, request.FILES, instance=request.user)  #这里的instance 就是类属于 这个用户 就相当于锁定了这个form是属于谁的 就不用想方法一那样再来找用户了 就可以直接保存  
+        if image_form.is_valid():
+            image_form.save()
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '修改成功'}), content_type='application/json')
+        else:
+            return HttpResponse(json.dumps({'status': 'fail', 'msg': '修改失败'}), content_type='application/json')
+
+为什么会有一个reqeust.FILES参数呢 因为 上传的是文件  所以 django 会把它保存到这个参数中 所以我们取去出来 必须用这个参数  同样可以使用断点查看
+
+上面的注释已经很清楚了  方法一没有写完 没有返回json 方法二 利用modelform特性 十分简单的就完成了 这个保存的效果
+
+应该就是利用form进行了选择 然后利用了ajax进行了 提交 
+
+然后就是前端的ajax 和 jquery
+这是一段展示头像的代码 
+//个人资料头像
+    $('.js-img-up').uploadPreview({ Img: ".js-img-show", Width: 94, Height: 94 ,Callback:function(){
+        $('#jsAvatarForm').submit();                      #jquery代码  就是其实我也不知道什么意思 反正就是 那个标签下  调用一个方法 uploadPreview 然后展示这个头像  
+    }});
+
+然后就是进行 用户密码修改

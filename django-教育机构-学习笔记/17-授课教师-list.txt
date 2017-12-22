@@ -1,0 +1,73 @@
+这里 来讲解一下
+
+首先就是 教师list 
+
+还是继承base
+
+写好相关内容
+
+定制url
+
+写views
+
+前端需要展现  allteacher  还有hotteacher
+
+所以我们直接就
+由于Teacher model 写在了organization 下
+
+写视图
+class TeacherView(View):
+    def get(self, request):
+        # 获取所有教师
+        all_teachers = Teacher.objects.all()
+
+        # 热门推荐
+        hot_teahcers = Teacher.objects.order_by('-click_nums')[:2]
+
+        # 人气排行
+        sort = request.GET.get('sort', "")
+        if sort:
+            if sort == 'hot':
+                all_teachers = all_teachers.order_by('-click_nums')
+
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+            # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_teachers, 3, request=request)
+        orgs = p.page(page)
+
+        return render(request, 'teachers-list.html', {
+            'all_teachers': orgs,
+            'hot_teahcers': hot_teahcers,
+            'sort': sort,
+        })
+
+基本都一样 这些部分我都是自己写的  
+
+
+然后就是  taacher detail 
+
+class TeacherDetailView(View):
+    def get(self, request, teacher_id):
+        teacher = Teacher.objects.get(id=teacher_id)   #传送一个taacherid过来
+        hot_teahcers = Teacher.objects.order_by('-click_nums')[:2]  #旁边的热门
+
+        has_fav_teacher = False  #控制收藏显示
+        has_fav_org = False
+
+        if request.user.is_authenticated:
+            if UserFacorite.objects.filter(user=request.user, fav_id=teacher.id, fav_type=3):
+                has_fav_teacher = True
+            if UserFacorite.objects.filter(user=request.user, fav_id=teacher.org.id, fav_type=2):
+                has_fav_org = True
+
+        return render(request, 'teacher-detail.html', {
+            'teacher': teacher,
+            'hot_teahcers': hot_teahcers,
+            'has_fav_teacher': has_fav_teacher,
+            'has_fav_org': has_fav_org,
+        })
+这一章没有任何难点 

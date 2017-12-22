@@ -1,0 +1,43 @@
+以前首页我们都是用的静态方法来处理
+
+现在我们基本上都做完了 就可以来处理首页了
+
+首先 首页我们还是让他继承我们的 base
+然后修改一点
+
+接着就是配置url 这个就是配置到项目的urls中
+    url('^$', IndexView.as_view(), name='index'),
+
+然后就是在users 中的views中写视图
+
+分析一下 首页 需要什么 首先是轮播图  饭后就是公开课  接着就是机构
+
+class IndexView(View):
+    """
+    首页
+    """
+
+    def get(self, request):
+        # 取出轮播图
+        all_banners = Banner.objects.all().order_by('index')
+
+        # 取出公开课
+        courses = Course.objects.filter(is_banner=False)[:6]
+        banner_courses = Course.objects.filter(is_banner=True)[:3]
+
+        # 取出机构
+        all_courseorgs = CourseOrg.objects.all()[:15]
+
+        return render(request, 'index.html', {
+            'all_banners': all_banners,
+            'courses': courses,
+            'banner_courses': banner_courses,
+            'all_courseorgs': all_courseorgs,
+        })
+
+这里我们在model中加了一个is_banner 来规定 这个课程 是否是 轮播图 中的
+
+然后就是遍历  中还加了  一个tag
+在courseorg中
+ tag = models.CharField(max_length=10,verbose_name="机构标签",default="全国知名")
+前端有一个显示 可用

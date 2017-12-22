@@ -1,0 +1,213 @@
+上面讲解了 机构列表的
+
+现在我们需要进入机构自己的主页 详情页
+介绍机构的
+
+主页包含了 三个内容 课程  教师 介绍
+
+所以首先 我们需要给机构传入这个三个内容 让他进行遍历
+
+class OrgHomeView(View):
+    """
+    机构首页
+    """
+
+    def get(self, request, org_id):
+        current_page = 'home'
+        course_org = CourseOrg.objects.get(id=int(org_id))   #可能有人要问 这个org_id 是哪里来的  看这里<a href="{% url 'org:org_home' course_org.id %}">  当我们从机构列表中点击机构的时候 就有一个机构的id  
+        has_fav = False
+        if request.user.is_authenticated:  #然后这里就是判断用户是否登录 
+            if UserFacorite.objects.filter(user=request.user, fav_id=course_org.id, fav_type=2):
+                has_fav=True
+        all_courses = course_org.course_set.all()[:3]  #|取出三个课程 这里的 
+        all_teachers = course_org.teacher_set.all()[:1]  #同理
+        return render(request, 'org-detail-homepage.html', {
+            'all_courses': all_courses,    #然后返回
+            'all_teachers': all_teachers,
+            'course_org': course_org,     #这里把机构信息返回  好显示机构介绍
+            'current_page': current_page,  #这个是为了 显示选中的效果 侧栏有四个选项 
+            'has_fav':has_fav,
+        })
+
+all_courses = course_org.course_set.all()[:3]
+这句话 我单独拿出来解释一下  course_org 就是这个机构的信息   机构本身有一个外键 连接到课程  一对多的关系
+所以 我们可以直接从机构中 拿出 所有属于这个机构的课程
+这里我们就使用了 django 给我们提供的一个方法  就是  course_set  前面的 course 就是课程  
+后面 [:3]就是进行分片
+
+用法
+current_page = 'home
+<li class="{% ifequal current_page 'home' %}active2{% endifequal %}"><a
+                        href="{% url 'org:org_home' course_org.id %}">机构首页</a></li>
+
+然后就是有一个收藏功能 如果收藏了 就显示已收藏  如果没有 就显示 收藏
+if request.user.is_authenticated:  #然后这里就是判断用户是否登录  只有用户登录了 才能进行收藏
+   if UserFacorite.objects.filter(user=request.user, fav_id=course_org.id, fav_type=2):  #如果数据库中用户已经收藏了
+       has_fav=True  #就在前端显示已收藏
+{% if has_fav %}已收藏{% else %}收藏{% endif %}
+默认 has_fav是False 只有验证成功了 才会显示已收藏
+
+然后就是我们的收藏功能
+收藏功能 依然采用的是ajax异步处理
+
+class AddFavView(View):
+    """
+    用户收藏，用户取消收藏
+    """
+
+    def post(self, request):  
+        fav_id = request.POST.get('fav_id', 0)  #获取机构id
+        fav_type = request.POST.get('fav_type', 0)#类型 当然这里我们应该是2 课程机构 fav_type = models.IntegerField(choices=((1, '课程'), (2, "课程机构"), (3, "讲师")), default=1, verbose_name="收藏类型")
+
+        if not request.user.is_authenticated:  #只有登录了 才能进行收藏  这里不能加括号哦
+            # 判断用户登录状态
+            return HttpResponse(json.dumps({'status': 'fail', 'msg': '用户未登录'}), content_type='application/json')  #如果用户没有登录 返回一个信息 然后 在前端 让页面跳转到 login页面
+
+        exist_records = UserFacorite.objects.filter(user=request.user, fav_id=int(fav_id), fav_type=int(fav_type))  #同样进行搜索 看是否已经收藏过了
+        if exist_records:       
+            # 如果记录已经存在，则表示用户取消收藏
+            exist_records.delete()
+            # 这里和下面收藏 和已收藏 是为了在前端显示 如果删除了收藏 前端就可以进行收藏
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '收藏'}), content_type='application/json')
+        else:
+            user_fav = UserFacorite()  #如果没有收藏就进行收藏    保存信息 
+            if int(fav_id) > 0 and int(fav_type) > 0:   #同时要保证fav_id 和 fav_type 要大于零
+                user_fav.user = request.user  #如果登录 就可以用request.user得到用户信息  同样 如果没有登录 就是一个匿名信息 
+                user_fav.fav_id = int(fav_id)
+                user_fav.fav_type = int(fav_type)
+                user_fav.save()
+                # 如果收藏了 前端就显示已收藏 无法再次收藏
+                return HttpResponse(json.dumps({'status': 'success', 'msg': '已收藏'}), content_type='application/json')
+
+            else:
+                return HttpResponse(json.dumps({'status': 'fail', 'msg': '收藏出错'}), content_type='application/json')
+
+
+然后就是前端ajax了
+
+    function add_fav(current_elem, fav_id, fav_type) {   #这里就接收到了 下面传来的三个参数
+        $.ajax({
+            cache: false,   #不进行缓存
+            type: "POST",   #post请求
+            url: "/org/add_fav/",  #url
+            data: {'fav_id': fav_id, 'fav_type': fav_type},  #传过去的数据
+            async: true,
+            beforeSend: function (xhr, settings) {
+                xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");     #这里就是为了安全 加上一个csrf_token  以前有form 可以写成  ｛% csrf_token %｝ 这样就会出现一个input框 虽然是隐藏的 这里是需要csrf_token的数值 所以需要{{ csrf_token }}
+            },
+            success: function (data) {                   #接受后台传过来的数据
+                if (data.status === 'fail') {             #如果响应为fail
+                    if (data.msg === '用户未登录') {          #同时信息为 用户未登录   
+                        window.location.href = "{% url 'login' %}";  #就跳转到登录页面
+                    } else {
+                        alert(data.msg)   #否则 弹出 用户错误信息
+                    }
+
+                } else if (data.status === 'success') {
+                    current_elem.text(data.msg)   #如果成功了 就在那个框框中加上那个msg信息
+                }
+            },
+        });
+    }
+
+    $('.collectionbtn').on('click', function () {    #当点击这个按钮 就调用上面定义的方法  传入参数 三个 本身（this表示的是当前对象）就是那个 .collectionbtn 属性  然后就是机构id    类型 2
+        add_fav($(this), {{ course_org.id }}, 2);
+    });
+
+基本就这样了
+
+这其中还有一个我没有讲  例如 这里 我们又创建了一个模版 org_base 让 home 课程 teacher desc 这几个 都继承我们的org_base
+
+基本都差不多
+
+然后就是其他几个信息
+
+
+class OrgCourseView(View):
+    """
+    机构课程列表页
+    """
+
+    def get(self, request, org_id):
+        current_page = 'course'            #选中状态显示用
+        course_org = CourseOrg.objects.get(id=int(org_id))  #机构信息
+        has_fav = False
+        if request.user.is_authenticated:
+            if UserFacorite.objects.filter(user=request.user, fav_id=course_org.id, fav_type=2):
+                has_fav = True  #显示是否收藏
+        all_courses = course_org.course_set.all()   #通过外键显示机构课程
+        return render(request, 'org-detail-course.html', {
+            'all_courses': all_courses,
+            'course_org': course_org,
+            'current_page': current_page,
+            'has_fav': has_fav,
+
+        })
+
+
+class OrgDescView(View):
+    """
+    机构介绍
+    """
+
+    def get(self, request, org_id):
+        current_page = 'desc'
+        course_org = CourseOrg.objects.get(id=int(org_id))
+        has_fav = False
+        if request.user.is_authenticated:
+            if UserFacorite.objects.filter(user=request.user, fav_id=course_org.id, fav_type=2):
+                has_fav = True
+        return render(request, 'org-detail-desc.html', {
+            'course_org': course_org,
+            'current_page': current_page,
+            'has_fav': has_fav,
+
+        })
+
+
+class OrgTeacherView(View):
+    """
+    机构教师页
+    """
+
+    def get(self, request, org_id):
+        current_page = 'teacher'
+        course_org = CourseOrg.objects.get(id=int(org_id))
+        has_fav = False
+        if request.user.is_authenticated:
+            if UserFacorite.objects.filter(user=request.user, fav_id=course_org.id, fav_type=2):
+                has_fav = True
+        all_teachers = course_org.teacher_set.all()
+        return render(request, 'org-detail-teachers.html', {
+            'all_teachers': all_teachers,
+            'course_org': course_org,
+            'current_page': current_page,
+            'has_fav': has_fav,
+
+        })
+
+忘了写urls了
+    url('^home/(?P<org_id>\d+)/$',OrgHomeView.as_view(),name='org_home'),
+    url('^course/(?P<org_id>\d+)/$',OrgCourseView.as_view(),name='org_course'),
+    url('^desc/(?P<org_id>\d+)/$',OrgDescView.as_view(),name='org_desc'),
+    url('^teacher/(?P<org_id>\d+)/$',OrgTeacherView.as_view(),name='org_teacher'),
+
+    #机构收藏
+    url('^add_fav/$', AddFavView.as_view(), name='add_fav'),
+org_id 就是机构id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

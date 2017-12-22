@@ -1,0 +1,78 @@
+这里就写 用户密码修改
+
+由于我们没有做新的页面
+
+所以我们还是在原来页面加了一个弹框来修改密码
+
+修改密码需要输入新密码 和 确认密码
+
+所以先配置 urls 然后定义form 最后写views
+
+urls
+# 用户个人中心修改密码
+    url('^update/pwd/$', UpdatePwdView.as_view(), name='update_pwd'),
+
+然后去定义form  但是发现 我们以前的定义了一个form了
+
+就是在忘记密码的时候
+
+现在我们同样可以用那个form
+
+现在我们只需要写views了
+
+class UpdatePwdView(LoginRequiredMixin, View):
+    """
+    个人中心修改密码
+    """
+
+    def post(self, request):
+        modify_form = ModifyPwdForm(request.POST)
+        if modify_form.is_valid():
+            pwd1 = request.POST.get("password", "")  #同样获取 密码1 2 
+            pwd2 = request.POST.get("password2", "")
+            if pwd1 != pwd2:  #然后进行判断
+                return HttpResponse(json.dumps({'status': 'fail', 'msg': '密码不一致'}), content_type='application/json')
+            user = request.user #这里我们肯定只有登录了才能进入info 修改密码 所以不用向忘记密码那样传送email 来确定用户
+            user.password = make_password(pwd1)
+            user.save()
+
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '修改成功'}), content_type='application/json')
+        else:
+            return HttpResponse(json.dumps(modify_form.errors), content_type='application/json')
+
+然后就是我们ajax 和jquery
+
+$(function(){
+    //个人资料修改密码
+    $('#jsUserResetPwd').on('click', function(){
+        Dml.fun.showDialog('#jsResetDialog', '#jsResetPwdTips');  #不知道什么意思  应该是 当点击修改密码的时候 就展示弹窗
+    });
+
+    $('#jsResetPwdBtn').click(function(){  #这里就是进行提交 已经解释了很多次 就不再说了
+        $.ajax({
+            cache: false,
+            type: "POST",
+            dataType:'json',
+            url:"/users/update/pwd/",
+            data:$('#jsResetPwdForm').serialize(),
+            async: true,
+            success: function(data) {
+                if(data.password){
+                    Dml.fun.showValidateError($("#pwd"), data.password);
+                }else if(data.password2){
+                    Dml.fun.showValidateError($("#repwd"), data.password2);
+                }else if(data.status == "success"){
+                    Dml.fun.showTipsDialog({
+                        title:'提交成功',
+                        h2:'修改密码成功，请重新登录!',
+                    });
+                    Dml.fun.winReload();
+                }else if(data.msg){
+                    Dml.fun.showValidateError($("#pwd"), data.msg);   #这里是 如果错误 就展示错误信息
+                    Dml.fun.showValidateError($("#repwd"), data.msg);
+                }
+            }
+        });
+    });
+
+下面一篇  就开始讲解 修改邮箱

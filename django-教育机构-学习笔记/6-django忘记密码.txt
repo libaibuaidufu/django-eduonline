@@ -1,0 +1,124 @@
+忘记密码 
+
+如果用户忘记了密码 我们需要让他输入自己的帐号  和验证码
+
+然后 给他的邮箱发送一个修改密码的链接  
+
+然后修改密码
+
+
+所以第一步 我们就要定一个urls  然后 用户从 登录页面 跳转到  我们忘记密码页面
+    url('^forgetpwd/$', ForgetPwdView.as_view(), name='forget_pwd'),
+ForgetPwdView  就是我们定义的视图
+
+由于前端 需要输入 邮箱和验证码
+所以我们需要定义 一个form 
+ForgetForm  
+有email captcha 字段
+
+然后在前端部署  如何详细的部署 我们前面一节 都已经讲过了
+
+然后就是定义ForgetPwdView
+
+先写最简单的饿 get方法
+    def get(self, request):
+        forget_form = ForgetForm()
+        return render(request, "forgetpwd.html", {'forget_form': forget_form})
+很简单的 返回一个  forgetpwd  忘记密码的页面
+
+然后就是用户post 请求
+    def post(self, request):
+        forget_form = ForgetForm(request.POST)
+        if forget_form.is_valid():
+            email = request.POST.get("email", "")
+            send_register_email(email, "forget")
+            return render(request, 'send_success.html')
+        else:
+            return render(request, "forgetpwd.html", {'forget_form': forget_form})
+基本就是 得到前端发送来的 数据 
+然后验证 如果form验证成功
+就进行数据库搜索
+我们得到email信息
+然后给 用户发送邮件  send_register_email 这个使我们在 utils 中定一个类的方法 传入了 email 和 send_type 两个参数
+由于前面我已经写了如何发送邮件过程 这里就不写了
+
+发送完了过后 
+
+用户就会收到一个链接http://127.0.0.1:8000/reset/{0}".format(code)
+看见那个reset  就知道我们需要去定义我们的urls  让用户打开这个url时  会有反应
+    url(r'^reset/(?P<active_code>.*)/$', ResetView.as_view(), name='reset_pwd'),
+这里我们定义了一个 ResetView视图
+来处理这个url
+get 方法  就是  获取到active_code组的验证码
+然后到验证码表中去查询 
+如果有 进行遍历
+然后 获取验证码表中的email 
+然后返回一个页面 密码重置的页面 和eamil信息都一起传送过去  
+这里把email 一起传送过去就是为了定义一个input 
+因为如果修改密码  由于http是无状态请求 所以我们并不知道是谁修改了密码 
+我们可以在前端表中 定义一个hidden 的input框 里面的email字段 value就是email信息
+然后提交的时候一同传到我们后台来处理 就知道是谁修改了密码
+
+这里我们定义了两个类 来处理 是为了避免逻辑太多 
+
+然后就是修改密码
+修改密码 就需要输入新密码和 确认密码
+
+然后就是要定义form 
+定义了一个ModifyPwdForm
+包含两个密码字段
+url('^modifypwd/$', ModifyPwdView.as_view(), name='modify_pwd'),
+
+然后定一个ModifyPwdView 视图
+来处理post请求
+因为 get 请求 ResetView已经处理了
+    def post(self, request):
+        modify_form = ModifyPwdForm(request.POST)  #还是实例化这个类
+        email = request.POST.get('email', "")  #获取前端的email
+        if modify_form.is_valid():            #验证form是否正确
+            pwd1 = request.POST.get("password", "")     #获取新密码
+            pwd2 = request.POST.get("password2", "")#旧
+            if pwd2 != pwd2:      #如果两个密码不相等
+                return render(request, 'password_reset.html', {'email': email, 'msg': '密码不一致'})  #就返回信息 密码不一致
+            user = UserProfile.objects.get(email=email)     #在users表中搜索email
+            user.password = make_password(pwd1)        #然后给密码加密
+            user.save()                 #存储
+
+            return render(request, 'login.html')  #返回到登录页面 让用户登录
+        else:
+            return render(request, 'password_reset.html', {'email': email, 'modify_form': modify_form})  #如果验证不成功就给用户返回错误信息
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

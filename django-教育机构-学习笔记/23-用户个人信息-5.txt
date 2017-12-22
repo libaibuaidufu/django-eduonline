@@ -1,0 +1,28 @@
+上面 讲了 修改头像 修改密码 修改 邮箱
+
+现在就可以就可以提交 表单了
+
+记住所有form 都要加上csrf_token
+
+前面我们已经配置了url 所以现在我们需要写一个form 来提交
+
+同样实际modelform 来继承
+
+class UserinfoForm(forms.ModelForm):
+
+    class Meta:
+        model = UserProfile
+        fields = ['nick_name','birday','address','gender','mobile']
+只需要这几个
+
+现在只需要在写一个post方法
+
+    def post(self, request):
+        user_info_form = UserinfoForm(request.POST, instance=request.user)#instance 这个类属于这个用户 就可以直接提交了
+        if user_info_form.is_valid():
+            user_info_form.save()
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '修改成功'}), content_type='application/json')
+        else:
+            return HttpResponse(json.dumps(user_info_form.errors), content_type='application/json')
+
+

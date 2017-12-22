@@ -1,0 +1,61 @@
+app包问题
+
+把我们所有的app包 存入到apps中
+我们新建一个 python pageage 
+命名为 apps
+然后就是把我们startapp 创建的四个app 拖入apps 方便管理
+然后就是拖入时  会有一个提醒 Search for references   和 Open moved files in editor 这个两个选都不选
+第一个选项选了就会给我们以前没有从apps.这个包下引用我们的数据 他就会自己添加apps.这个选项  我们不需要
+我们在settings中添加  apps的搜索目录
+import sys
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))  #插入到 0 的位置，最先就从apps包的位置 搜索 
+
+django app 设计
+users - 用户相关
+courses - 课程相关
+organization - 机构相关
+operation - 用户操作相关
+
+users models.py
+自定义userprofile 覆盖默认user表
+EmailVerifyRecord - 邮箱验证码
+PageBanner - 轮播图
+
+	  循环引用
+	User models.py
+	 (UserCourse)
+	 c	u
+	 o	s
+	 u	e
+	 r	r
+	 s
+	 e
+	Courses models.py
+	 (CourseComment)
+
+app model 分层设计
+	operation
+
+courses  organization  users
+
+operation 可以对它们进行import 这里不是特别动 可能实际应用中会发现
+
+courses models.py
+Course - 课程基本信息
+Lesson - 章节信息
+Video - 视频
+CourseResource - 课程资源
+
+organization models.py
+CourseOrg - 课程机构解基本信息
+Teacher - 教师基本信息
+CityDict - 城市信息
+
+operation models.py
+Userask - 用户咨询
+CourseComments - 用户评论
+UserFavorite - 用户收藏
+UserMessage - 用户信息
+UserCourse - 用户学习的课程

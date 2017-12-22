@@ -1,0 +1,279 @@
+首先是登录
+
+上一篇我们已经讲了登录的逻辑 和方法
+
+但是现在主要使用django 视图 都采用了 类 来写
+这样以后更改 更加直观能看清楚逻辑顺序
+
+class LoginView(View):
+    def get(self, request):
+        return render(request, 'login.html', {})
+
+    def post(self, request):
+        login_form = LoginForm(request.POST)
+        if login_form.is_valid():
+            user_name = request.POST.get("username", "")
+            pass_word = request.POST.get("password", "")
+            user = authenticate(username=user_name, password=pass_word)
+            if user is not None:
+                if user.is_active:  #如果用户激活了 就可以登录
+                    login(request, user)
+                    return render(request, 'index.html')
+                else:
+                    return render(request, 'login.html', {"msg": "用户未激活！"}) #如果用户没有激活可以在实现一次给他发送激活邮件 让他激活
+            else:
+                return render(request, 'login.html', {"msg": "用户名或者密码错误！"})
+        else:
+            return render(request, 'login.html', {"login_form": login_form})
+
+在views 定义一个 登录的类  继承我们的view类  
+from django.views.generic.base import View
+
+有很多中方法  get post put 等
+基本最常用的就是get post 其他的基本不用
+
+逻辑很好就跟前面一样 如果是get 请求  就直接返回登录页面给他   同时把我们定义的loginform传递给他
+为什么上面没有传递呢   可能是我忘了修改 因为前端login.html我也没有修改  一会把他改了试试
+
+如果是post 请求 就实例化LoginForm获取request.Post的值 因为获取的是一个dict
+if login_form.is_valid():
+这句话就是验证 form是否验证成功了  然后获取username的值 
+user_name = request.POST.get("username", "")  这里的usernaem 必须和前端的input框中的name值一样才能获取到值
+否则会出现错误
+
+后面逻辑就是登录   login(request, user)  这是django给我们提供的方法
+这里面就是记录了 一个session_id 来保存我们登录的效果
+由于http请求 是无状态的 请求 
+所以为了让服务器知道是那个用户发送的请求  所以在浏览器给服务器第一次发送请求时  
+服务器会给浏览器发送一个id  来表示这个用户 当第二次浏览器发送请求时 就会带着这个id 到服务器上
+服务器就会会在数据库上查询这个session_id  然后知道这个用户是谁
+cookie 和session 
+cookie 是本地浏览器的一种行为  cookie 保存到本地浏览器中
+而session是服务器上的一种行为  session保存到服务器上  
+每次提交信息 cookie 就会到这session 到服务器来 
+login（）就是为我们做了session这个事情 我们不用管  他自己就给用户分配了session_id
+每次进行验证 来识别用户  但是session 是有期限 不然别人拿着你的session 不就可以无限使用了吗
+
+然后我们来说说注册模块
+
+首先是在urls 中定义 register 
+    url('^register/$', RegisterView.as_view(), name='register'),
+这里的 RegisterView 就是我们定义的 视图类  由于是继承View  所以可以使用View中的一个as_view方法来做一个
+返回接受请求并返回响应的可调用视图
+就是返回这个视图的可调用方法吧 例如我们定义的get  post 方法
+
+然后就是定义一个 RegisterForm表单 来
+class RegisterForm(forms.Form):
+    email = forms.EmailField(required=True)
+    password = forms.CharField(required=True, min_length=5)
+    captcha = CaptchaField(error_messages={"invalid": "验证码错误"})
+
+注册表 只有单个属性 一个邮箱 一个密码 一个是验证码  验证码这个 我们就需要使用到
+django的第三方模块了 可以在github 中搜索 django captcha 收藏最多的就是了
+
+官方文档讲解了怎么使用 
+http://django-simple-captcha.readthedocs.io/en/latest/usage.html#installation
+
+
+
+    Install django-simple-captcha via pip: pip install  django-simple-captcha  #安装
+
+    Add captcha to the INSTALLED_APPS in your settings.py       #把安装的app  配置到settings中
+
+    Run python manage.py migrate         #更新表  由于验证码 也是需要表来存储 所以需要更新表
+
+    Add an entry to your urls.py:      #在ruls 加入一个 验证码路径  像下面那样 直接复制就可以了
+
+    urlpatterns += [
+        url(r'^captcha/', include('captcha.urls')),
+    ]
+
+配置好了这些过后  就可以在forms  表单中定义
+captcha = CaptchaField(error_messages={"invalid": "验证码错误"}) 
+django 给我们提供了一个 CaptchaField 方法  来填写验证码 后面的信息 就是如果错误了 提示的信息
+
+表单定义好了 我们就来写我们的get  方法
+
+class RegisterView(View):
+    def get(self, request):#如果是get 请求 就执行这个方法
+        register_form = RegisterForm()    #实例化 表单类
+        return render(request, 'register.html', {'register_form': register_form}) #返回表单
+然后在前台配置信息  
+这里面 我来讲解一下前端配置需要注意的一些关键
+例如 css。js 等静态文件  我们可能以前是直接写路径 但是万一做了修改怎么办 呢 所以我们采用一个django给我们提供的方法
+在这之间加一个 加载 静态文件夹
+<html>
+{% load staticfiles %}
+<head>
+
+href="{% static 'css/reset.css' %}  在路径上使用这个方法来写 如果以后更爱了 static文件名 也不会出错
+static 这个名字来源于 我们setting中
+
+STATIC_URL = '/static/'  #这里 如果这里修改了名字 前端也要进行修改 如果这里不改  改了 文件夹本来的名字 也没事
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
+但是必须加  {% load staticfiles %} 这句话 才能实现这个功能 
+然后就是表单 form 属性下  action
+<form id="email_register_form" method="post" action="{% url 'register' %}" autocomplete="off">
+这里就是一个完整的 信息  记得加上method 方法   action 使用django提供的这种方法 
+如果使用action ="/register/"  如果更改了 url 不是rgister了 就都要修改 所以使用我们在url中给他定义的别名 来标识它 不管以后 它做如果修改都没有错
+这里跟href 同理 
+
+还有如果注册时 有错误信息 如何显示输出来
+<div class="form-group marb20 {% if register_form.errors.email %}errorput{% endif %}">#这里使用判断 给class 加上一个errorput属性 如果email有错误信息  就给这个框加上错误的提示 变红
+     <label>邮&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;箱</label>
+    <input type="text" id="id_email" name="email" value="{{ register_form.email.value }}" #这里是如果注册出现错误，还把email这个值返回给前端显示出来
+        placeholder="请输入您的邮箱地址"/>
+</div>
+<div class="form-group marb8 captcha1 {% if register_form.errors.captcha %}errorput{% endif %}">
+                            <label>验&nbsp;证&nbsp;码</label>
+                            {{ register_form.captcha }}  #验证码的使用就直接这样  其实前面的也可这样 但是没有必要做这样的修改吧
+                        </div>
+
+<div class="error btns" id="jsEmailTips">
+{% for key,error in register_form.errors.items %}{{ error }}{% endfor %}{{ msg }}
+</div>
+错误信息集中显示  由于错误信息errors也是一个dict  就可以使用键值对样式 进行分割 把错误信息提示出来 
+
+前端的部署差不多 都是大同小异了 
+
+现在来实现后台逻辑了
+get方法 我们已经讲了 
+
+post 方法  
+
+def post(self, request):
+    register_form = RegisterForm(request.POST) #实例 获取  这个里面的值
+    if register_form.is_valid():  #如果验证成功
+        user_name = request.POST.get("email", "")  #获取这里面的email 
+        if UserProfile.objects.filter(email=user_name):   #然后进行搜索 如果有 
+            return render(request, "register.html", {"register_form": register_form, "msg": "用户已经存在"})#就说明注册的用户已经存在
+        pass_word = request.POST.get("password", "")  #如果没有  就获取密码
+        user_profile = UserProfile()    #实例化这user类的
+        user_profile.username = user_name   #然后进行赋值修改
+        user_profile.email = user_name
+        user_profile.password = make_password(pass_word)  #加密密码
+        user_profile.is_active = False    #用户未激活  我们使用邮箱验证激活 后面讲
+        user_profile.save()        #然后进行存储
+
+        send_register_email(user_name, "register")   #这里开始发送邮件给用户 让他进行验证  
+        return render(request, 'login.html', {})
+    else:
+        return render(request, "register.html", {"register_form": register_form})
+
+
+这里就要讲一下如何发送邮件了  
+由于这个发送邮件 是一个共用的 所以我们 可以从新创建一个package
+叫做 utils
+创建一个email_send.py  文件
+
+定义一个方法
+
+def send_register_email(email, send_type='register'):
+    email_record = EmailVerifyRecord()  #实例化这个类 这个使我们验证码的model   EmailVerifyRecord 包含了 四个字段   code email send_type send_time 这个域
+    code = random_str(16)  #这里random_str 就是我们定义的随机验证码方法
+    email_record.code = code  #进行赋值    code 就是我们的验证码 
+    email_record.email = email  #收件人邮箱
+    email_record.send_type = send_type  #这里是类型 我们做了两个 类型 注册 和找回密码 默认是注册
+    email_record.save()  #这里进行保存
+
+    email_title = ""  
+    email_body = ""
+
+    if send_type == "register":
+        email_title = "幕学在线网注册激活链接"   #邮件开头
+        email_body = "请点击下面的链接激活你的帐号:http://127.0.0.1:8000/active/{0}".format(code)#邮件内容
+
+        send_status = send_mail(email_title, email_body, EMAIL_FROM, [email])#send_email是django给我们提供的一个方法 send_email 这四个必要参数  邮件开头 邮件主体内容 发送人 收件人 
+        if send_status:  #如果响应正确就是发送成功了
+            pass
+
+    elif send_type == 'forget':
+        email_title = "幕学在线网密码重置链接"
+        email_body = "请点击下面的链接重置密码:http://127.0.0.1:8000/reset/{0}".format(code)
+
+        send_status = send_mail(email_title, email_body, EMAIL_FROM, [email])
+        if send_status:
+            pass
+
+发送邮件 还需要在settings中配置一些信息 
+
+EMAIL_HOST = "smtp.163.com"
+EMAIL_PORT = 25
+EMAIL_HOST_USER = "13981963073@163.com"
+EMAIL_HOST_PASSWORD = '13981963073kai'
+EMAIL_USER_TLS = False
+EMAIL_FROM  = "13981963073@163.com"#这里为了在邮箱开头显示是谁发送的
+这里是我发送邮箱的信息   
+
+
+from random import Random
+
+def random_str(randomlength=8):
+    str = ""  #定一个空字符串
+    chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789"#一个包含大小写字母和数字的字符串
+    length = len(chars) - 1  #长度 
+    random = Random()  #实例化这个类
+    for i in range(randomlength):    #randomlength 就是含有默认值的参数 循环遍历
+        str += chars[random.randint(0, length)]  #类似字符串索引一样 random.randint(0, length)随机索引一个数 str 保存到自己的字符串中 然后遍历默认的8 生成的字符串密码
+    return str
+
+然后返回这个结果 到上面的 code  其实我感觉使用  uuid 是不是更简单呢 哈哈
+
+发送邮件  注册万过后 就返回到login页面 让用户登录 然后就是 
+加上 用户如果没有注册 就不能登录  并转到一个页面 然后 给他发一个激活邮件
+
+给他发送了一个邮件过后就是激活的问题
+
+激活我们从发送给他的链接就能发现一个问题
+http://127.0.0.1:8000/active/{0}".format(code) 
+这个链接  有一个active url 我们就需要在urls 中定义好让它在
+
+    url(r'^active/(?P<active_code>.*)/$', ActiveUserView.as_view(), name='user_active'),
+
+这里ActiveUserView使我们写的一个激活的视图
+
+active 就是/就是正则表达式 自定义命名组  来把后面的数据发到这个组里  然后使用这个名字就是那些验证码
+
+class ActiveUserView(View):
+    def get(self, request, active_code):  #get请求 获取 url中 active_code  也就是验证码
+        all_records = EmailVerifyRecord.objects.filter(code=active_code)  #然后到我们定义的验证码model中去搜索  这里面的数据 使我们在send_email时 存储的 现在拿来验证
+        if all_records:  #如果有
+            for record in all_records:  #遍历它
+                email = record.email   #由于取出model中记录的 email  
+                user = UserProfile.objects.get(email=email)  #在user表中进行搜素
+                user.is_active = True  #然后把user表中的is_active 该为True
+                user.save()  #然后保存
+        else:
+            return render(request, 'active_fail.html')  #如果没有 就提示一个链接失效的页面
+        return render(request, 'login.html')  #如果激活成功 最后返回到登录页面
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

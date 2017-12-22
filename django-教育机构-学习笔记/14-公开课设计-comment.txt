@@ -1,0 +1,141 @@
+接下来就是评论
+
+用户对课程的评论
+
+还是继承base
+
+由于课程评论和 课程info 大部分内容一样
+
+所以我们可以直接copy一下courseInfo
+
+然后就是定制urls
+    url(r'^comment/(?P<course_id>\d+)/$', CommentsView.as_view(), name='course_comment'),
+这里就是课程评论
+
+然后写视图
+    def get(self, request, course_id):
+        has_true = True
+        course = Course.objects.get(id=int(course_id))
+        user_cousers = UserCourse.objects.filter(course=course)
+        user_ids = [user_couser.user.id for user_couser in user_cousers]
+        all_user_courses = UserCourse.objects.filter(user_id__in=user_ids)
+        # 取出所有课程id
+        course_ids = [user_couser.course.id for user_couser in all_user_courses]
+        # 获取学过该课程的同学学过其他的课程
+        relate_courses = Course.objects.filter(id__in=course_ids).order_by('-click_nums')[:5]
+
+        all_resources = CourseResource.objects.filter(course=course)
+        all_comments = CourseComments.objects.filter(course=course).order_by('-add_time')
+        return render(request, 'course-comment.html', {
+            'course': course,
+            'all_resources': all_resources,
+            'all_comments': all_comments,
+            'relate_courses': relate_courses,
+            'has_courses': has_true,
+        })
+
+基本和上次差不多 我就说点不一样的 
+就是评论信息 
+all_comments = CourseComments.objects.filter(course=course).order_by('-add_time')
+直接搜索 课程评论  以course为搜索标准  按照时间排序
+
+然后就是在前端进行配置
+
+主要的是添加评论
+
+同样我们需要 使用ajax  用户不希望 我发送一个评论 就要刷新一下页面
+
+首先配置一个urls
+#添加课程评论
+    url(r'^add_comments/$', AddCommentsView.as_view(), name='add_comments'),
+来处理用户发表的评论
+
+class AddCommentsView(View):
+    """
+    用户添加课程评论
+    """
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            # 判断用户登录状态
+            return HttpResponse(json.dumps({'status': 'fail', 'msg': '用户未登录'}), content_type='application/json')
+
+        course_id = request.POST.get('course_id', 0)
+        comments = request.POST.get('comments', "")
+        if int(course_id) > 0 and comments:
+            course_comments = CourseComments()
+            course = Course.objects.get(id=int(course_id))
+            course_comments.course = course
+            course_comments.comments = comments
+            course_comments.user = request.user
+            course_comments.save()
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '添加成功'}), content_type='application/json')
+        else:
+            return HttpResponse(json.dumps({'status': 'fail', 'msg': '添加失败'}), content_type='application/json')
+
+首先判断用法是否登录
+
+然后  接受ajax传过来的 课程id  评论内容
+然后判断 如果 课程id是大于零的 内容不为空
+
+就进行保存 然后返回信息  添加成功
+
+否则 返回添加失败
+
+然后就来讲讲 ajax
+
+  <script type="text/javascript">
+        //添加评论
+        $('#js-pl-submit').on('click', function () {
+            var comments = $("#js-pl-textarea").val();
+            if (comments === "") {
+                alert("评论不能为空");
+                return
+            }
+            $.ajax({
+                cache: false,
+                type: "POST",
+                url: "{% url 'courses:add_comments' %}",
+                data: {'course_id': {{ course.id }}, 'comments': comments},
+                async: true,
+                beforeSend: function (xhr, settings) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+                },
+                success: function (data) {
+                    if (data.status === 'fail') {
+                        if (data.msg === '用户未登录') {
+                            window.location.href = "{% url 'login' %}";
+                        } else {
+                            alert(data.msg)
+                        }
+
+                    } else if (data.status === 'success') {
+                        window.location.reload();//刷新当前页面.
+                    }
+                }
+            });
+        });
+
+    </script>
+
+同样就是当用户点击 发送按钮  然后 var一个变量 接受评论字段里面的值
+ 如果这个 值为空 就跳一个弹框 然后return结束掉
+
+如果不为空 
+
+就进行ajax发送
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

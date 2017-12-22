@@ -1,0 +1,140 @@
+首先就是设计公开课首页
+
+找到前端模版 course_list 课程列表 
+
+让他继承我们的base 模版
+
+通过前端网页 我们知道 我们需要给前端输入什么内容 让他显示
+
+需要所有的公开课  旁边的热门推荐
+进行筛选 这些功能
+
+首先还是定制url 我们还是先在 正常的urls下 写一个公开课的include
+    url(r'^course/', include('courses.urls',namespace='course')),
+然后在course 包下 创建一个urls 写这个包的urls
+#这是课程列表页
+    url(r'^list/$',CourseListView.as_view(),name='course_list'),
+然后就是定制视图
+
+第一步 就是先返回一个 course-list.html 页面
+看看前端是否显示
+
+然后就开始传入参数
+基本就是 搜索出所有公开课 然后进行分页显示
+# 全部课程
+        all_courses = Course.objects.all().order_by('-add_time')
+排序 按照时间排序   
+
+然后还有两个筛选 就是 按照热门排序  按照 学习人数排序 
+这个前面我们做过
+sort = request.GET.get('sort', "")  #获取sort 的参数 
+        if sort:
+            if sort == 'hot':  #如果参数等于hot   这里的hot 就是我们在前端给热门 写的一个参数 当用户点击这个热门 sort=hot 后台接受的就是hot
+                # 热门筛选
+                all_courses = all_courses.order_by('-click_nums') #按照点击数排序
+            if sort == 'students':
+                # 人数筛选
+                all_courses = all_courses.order_by('-students')
+
+然后就是进行分页  这个也做过
+from pure_pagination import Paginator, EmptyPage, PageNotAnInteger
+
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+        # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_courses, 1, request=request)
+        orgs = p.page(page)
+
+基本一样  然后在前端部署 好就行了 跟着 github上的走
+
+然后就是侧栏 热门推荐  同样是根据点击数来排名
+ # 侧栏热门推荐
+        hot_courses = Course.objects.order_by('-click_nums')[:3]
+这里我们支取三个  显示
+
+最后return 给前端
+return render(request, 'course-list.html', {
+            'all_courses': orgs,
+            'hot_courses': hot_courses,
+            'sort': sort,
+            'has_courses': has_true,
+        })
+
+这下我们来看看前端部署
+面包屑 导航 就不说了
+主要是中间内容
+有三个筛选
+ <li class="{% ifequal sort "" %}active{% endifequal %}"><a href="?sort=">最新 </a></li>
+ <li class="{% ifequal sort 'hot' %}active{% endifequal %}"><a href="?sort=hot">最热门</a></li>
+ <li class="{% ifequal sort 'students' %}active{% endifequal %}"><a href="?sort=students">参与人数</a></li>
+根据传过来的sort 来显示选中效果
+
+接下来就是主体内容
+{% for course in all_courses.object_list %}
+    <div class="box">
+        <a href="{% url 'courses:course_detail' course.id %}">
+            <img width="280" height="350" class="scrollLoading"
+                 src="{{ MEDIA_URL }}{{ course.image }}"/>
+        </a>
+        <div class="des">
+            <a href="{% url 'courses:course_detail' course.id %}">
+                <h2>{{ course.name }}</h2>
+            </a>
+            <span class="fl">时长：<i class="key">{{ course.learn_times }}</i></span>
+            <span class="fr">学习人数：{{ course.students }}&nbsp;&nbsp;</span>
+        </div>
+        <div class="bottom">
+            <a href="{% url 'courses:course_detail' course.id %}"><span
+                    class="fl">来自{{ course.course_org.name }}</span></a>
+            <span class="star fr  notlogin
+        " data-favid="15">
+        1
+    </span>
+        </div>
+    </div>		
+{% endfor %}
+上面是主体  没有什么好讲的
+
+复制下面这都代码主要是讲一点
+{% for hotcourse in hot_courses %}
+    <dl>
+        <dt>
+            <a target="_blank" href="{% url 'courses:course_detail' hotcourse.id %}">
+                <img width="240" height="220" class="scrollLoading"
+                     src="{{ MEDIA_URL }}{{ hotcourse.image }}"/>
+            </a>
+        </dt>
+        <dd>
+            <a target="_blank" href=""><h2> {{ hotcourse.name }}</h2></a>
+            <span class="fl">难度：<i class="key">{{ hotcourse.get_degree_display }}</i></span>
+        </dd>
+    </dl>
+{% endfor %}
+{{ hotcourse.get_degree_display }} 就是这句 难度 这里 我们是用choice 来做的选择存储
+后台存储的  cj zj gj 这样的字符  如何显示 choice 中的中文呢  
+就可以使用get_xx_display这个语句  就可以显示你在model中定义xx字段时的choice了
+我刚开始做的是一个判断来写的 后面看了教程 发现了这个方法 哈哈
+
+同时为了在base中显示选中公开课 和首页 课程机构等几个选项的选中效果 我才用了
+        has_true = True
+这个方法 来做判断
+
+这部分基本就完了 
+接下来就是课程详情页了
+
+
+
+
+
+
+
+
+
+
+
+
+
+

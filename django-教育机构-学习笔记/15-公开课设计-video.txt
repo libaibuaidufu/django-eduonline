@@ -1,0 +1,86 @@
+这里就是播放问题了
+
+写一个播放页面
+
+继承base 基本和info  差不多 可以复制过来进行局部替换掉就可以了
+
+配置url
+#播放
+    url(r'^video/(?P<video_id>\d+)/$', VideoPalyView.as_view(), name='course_play'),
+
+然后写views
+
+    def get(self, request, video_id):
+        has_true = True
+
+        video = Video.objects.get(id=int(video_id))
+        course = video.lesson.course
+
+        # 查询用户是否已经关联了该课程
+        user_cousers = UserCourse.objects.filter(course=course)
+        if not user_cousers:
+            user_couser = UserCourse(user=request.user, course=course)
+            user_couser.save()
+
+        user_cousers = UserCourse.objects.filter(course=course)
+        user_ids = [user_couser.user.id for user_couser in user_cousers]
+        all_user_courses = UserCourse.objects.filter(user_id__in=user_ids)
+        # 取出所有课程id
+        course_ids = [user_couser.course.id for user_couser in all_user_courses]
+        # 获取学过该课程的同学学过其他的课程
+        relate_courses = Course.objects.filter(id__in=course_ids).order_by('-click_nums')[:5]
+
+        all_resources = CourseResource.objects.filter(course=course)
+        return render(request, 'course-play.html', {
+            'course': course,
+            'all_resources': all_resources,
+            'relate_courses': relate_courses,
+            'video': video,
+            'has_courses': has_true,
+        })
+
+大部分内容相似 info
+
+这里只说一些不一样的
+
+还是传入参数 video_id 然后进行搜索  
+video = Video.objects.get(id=int(video_id))
+course = video.lesson.course
+这里course 是为了后面 给其他内容用的 因为以前传入的 是course_id 可以直接搜索
+这里就可以使用外键来找  基本就是外键找外键
+
+然后就返回给前端 
+
+播放的有一个页面 可以去找 video.js  来使用 百度一下  找到他们的github  看一看就知道怎么使用了
+
+
+这里其实还有一个bug  就是 视频下面 显示了章节和 评论 
+我们不可能 让用户点击了 评论 就又刷新一下视频  所以 这里也需要ajax控制
+
+具体怎么做 后面在来填坑了
+
+然后就是进行用户关联  
+当用户点击了开始学习 就需要给用户的用户课程中 加入这个 课程
+# 查询用户是否已经关联了该课程
+        user_cousers = UserCourse.objects.filter(course=course)
+        if not user_cousers:
+            user_couser = UserCourse(user=request.user, course=course)
+            user_couser.save()
+
+首先进行搜索 看用户课程model中是否有这个课程
+如果没有就进行 保存  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

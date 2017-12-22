@@ -1,0 +1,167 @@
+xadmin  
+
+为了配置自己的xadmin 做一些修改
+
+就可以 去github 下载源码 然后把他复制到  项目下 
+然后卸载了pip 安装的 xadmin  但是xadmin的其他配置包 他还留着 因此我们使用xadmin源码 也能运行
+
+以前在 urls 中添加的
+import xadmin
+
+urlpatterns = [
+    path('xadmin/', xadmin.site.urls),
+]
+
+就算卸载了 xadmin也不会出错 
+因为它使用的是我们项目下的 xadmin包
+
+然后就是运行他会报错  说没有xadmin包  因为系统不会自动搜索 pycharm不会报错 但是运行会报错
+因此 我们可以创建一个 extra_apps 然后把xadmin放入进去 然后把 extra_apps mark一下 
+然后在去 settings 中设置路径
+sys.path.insert(0, os.path.join(BASE_DIR, 'extra_apps'))
+就像设置apps 包一样
+
+这样再运行就不会出错了
+
+然后就可以进行到xadmin后台了
+可能会报错 缺失 xadmin_log 表  如果使用的django2.0 的xadmin似乎已经在上一次makemigrations时  已经创建
+就说说如果没有创建的话 那就 在makemigrations一次 就好了
+ 
+然后就可以进入xadmin后台了
+
+然后就是注册 models 到后台 上次 我们已经使用过  admin后台注册
+这个xadmin跟admin差不多
+但是我们要先在app包中 例如 users中 创建一个adminx.py文件 
+这里我们就可以使用pycharm的 模版  进入pycharm的settings设置 搜索templates 就可以找到python 的模版
+加上utf-8 编码 加上作者  加上  时间 
+
+然后我们创建的时候 就会出现这些信息
+# coding:utf-8
+__author__ = "dfk"
+__date__ = "2017/12/10 9:53"
+
+然后 就是注册的问题了
+其实很简单
+
+import xadmin
+#这里是我们在users中创建的邮箱验证码的表 
+class EmailVerifyRecordAdmin(object):                  #我们只需要在 这个类的名字后面加上Admin就行了 继承我们的object
+    list_display = ['code', 'email', 'send_type', 'send_time']     #后台我们创建一个邮箱验证码后 只显示了 邮箱验证吗 但是我们想显示全部信息 就需要使用列表展示 需要在后台展示我们需要的信息 里面的字符串 就是我们的字段的名字
+    search_fields = ['code', 'email', 'send_type']          #这里是搜索功能 搜索功能无法搜索时间 所以时间不能出现在这个list中
+    list_filter = ['code', 'email', 'send_type', 'send_time'] #过滤功能
+ 
+xadmin.site.register(EmailVerifyRecord, EmailVerifyRecordAdmin)  #这里是注册 一看就明白 model名 加上 modelAdmin 
+然后就会在后台显示这个model 
+
+后台显示的是中文 邮箱验证码 这是为什么呢 
+    class Meta:
+        verbose_name = "邮箱验证吗"
+        verbose_name_plural = verbose_name
+
+就是因为我们在model中定义了 verbose_name 
+
+然后就是另一个问题 我们在创建一个邮箱验证码后 显示的是EmailVerifyRecord object 没有显示我们的信息  
+这时候  我们就需要使用
+在这个EmailVerifyRecord model中 加上这个方法  然后返回一个字符  这样就不会显示EmailVerifyRecord object  
+而是显示 我们的自己定义的格式
+py3 使用这个
+    def __str__(self):
+        return "{0}({1})".format(self.code,self.email)
+py2
+    def __unicode__(self):
+        return "{0}({1})".format(self.code,self.email)
+
+还有一些问题 例如 外键问题
+
+外键我们也需要注册到里面 
+同时
+class LessonAdmin(object):
+    list_display = ['course', 'name', 'add_time']           #
+    search_fields = ['course', 'name']
+    list_filter = ['course__name', 'name', 'add_time']    #过滤的时候 如果直接写course  后台就不知道 过滤course表里面的那个参数 所以 我们可以加上course__name 来表明我们要过滤课程名  是双下滑线 
+ 注册基本就这些了  其他的就是复制粘贴的事  
+
+这里用一个例子为例
+
+
+然后就是另一个问题
+既然我们已经注册好了 
+就是来说说 xadmin给我们 配置很多主题 我们可以在哪里打开呢
+同样是在 adminx.py文件中配置
+
+class BaseSetting(object):      #名字注意不能写错了  可以看作基础设置
+    enable_themes = True     #这里xadmin默认是关闭我们的 主题功能的 这里设置为True 打开
+    use_bootswatch = True    #这里使用主题  就会出现很多主题 但是主题都是从谷歌上下载 可能有点慢所以使用自带的也行
+
+from xadmin import views
+xadmin.site.register(views.BaseAdminView, BaseSetting)
+同样这个也需要注册   这个是使用 xadmin中views来注册  views.BaseAdminView
+
+然后就是修改我们后台管理系统的 一些 小东西 例如 开头的Django admin 我们需要改成  自己想要 和 footer 下面的我的公司 也可以修改
+
+class GlobalSettins(object):           #名字不能错 这里可以看作  全局设置
+    site_title = "志学后台管理系统"     #title
+    site_footer = "志学在线网"        #footer
+    menu_style = "accordion"        #这个是什么看英文 就是菜单样式 由于我们后台把所有的表都显示出来 显得很多 因此我们需要把他折叠一下  设置为 accordion
+xadmin.site.register(views.CommAdminView, GlobalSettins)
+这里使用views.CommAdminView注册
+
+这些都搞定了 然后发现 折叠后 外面显示的是我们app包的名字 是英文 不便我们理解里面具体有什么功能 所以我们可以修改为中文
+
+
+在我们startapp 包后 里面有一个apps.py 文件 
+这个文件下我们就可以修改名字让他显示中文
+
+#coding:utf-8
+from django.apps import AppConfig    #从django.apps 中导入  AppConfig类
+
+
+class OperationConfig(AppConfig):  #然后我们的OperationConfig继承 AppConfig类 修改其中一部分  OperationConfig就是我们的app包名 加上config
+    name = 'operation'         #name 就是包名
+    verbose_name = "用户操作"    #这里别名就是 用户操作
+这里设置完了 我们还有去 初始化中 配置它  
+找到app包中的 __init__.py文件
+default_app_config = "operation.apps.OperationConfig"
+自定义包配置   后面跟上我们的路径  
+然后每个都去修改一下 
+就会发现 后台我们显示的都是中文了 完美
+
+后面就要进行我们的前台视图逻辑编写了
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 

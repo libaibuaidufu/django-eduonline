@@ -1,0 +1,65 @@
+现在来写 我的信息
+
+首先写html 继承 usercenter base
+
+然后就是写urls
+
+ # 我的消息
+    url('^mymessage/$', MymessageView.as_view(), name='mymessage'),
+
+然后就是views
+就是直接在数据库中查询 然后 进行分页
+
+class MymessageView(LoginRequiredMixin, View):
+    """
+    我的消息
+    """
+
+    def get(self, request):
+        all_message = UserMessage.objects.filter(user=request.user.id).all()#查询用户所有信息
+
+        # 用户进入个人消息后清空未读消息的记录
+        all_unread_messages = UserMessage.objects.filter(has_read=False, user=request.user.id).all()
+        for unread_message in all_unread_messages:
+            unread_message.has_read = True
+            unread_message.save()
+
+        # 对个人消息进行分页
+        try:
+            page = request.GET.get('page', 1)
+        except PageNotAnInteger:
+            page = 1
+
+            # Provide Paginator with the request object for complete querystring generation
+        p = Paginator(all_message, 5, request=request)
+        messages = p.page(page)
+
+        return render(request, 'usercenter-message.html', {
+            'all_message': messages,
+        })
+
+很简单 
+
+然后就是后面的修改了 当用户点击了 我的消息 消息就应该 变为已读  
+
+所有那里有一个 把未读消息变为已读的
+同样还是 在Usermeassge综合那个进行查询  所有未读 和属于这个用户的信息
+然后for循环 进行 修改
+
+然后就是在前端显示了 由于显示 未读消息 是一个全局的信息
+所以不可能没有页面都添加信息的 查询 这样太麻烦了
+
+想一想什么是可以全局查询的 对 就是request
+
+request.user 可以连接到我们的users数据库
+
+我们可以在users中定义一个方法 来查询 未读信息的数量 这样就可以全局显示了
+    def unread_nums(self):
+        # 获取用户未读信息的数量
+        from operation.models import UserMessage
+        return UserMessage.objects.all(user=self.id, has_read=False).count()
+
+然后在前端 就直接使用request.user.unread_nums 这样就可以  
+
+
+

@@ -1,0 +1,184 @@
+然后就是侧栏的 用户咨询表单
+
+这个表单 其实很简单
+
+首先我们还是来定义 urls
+你会发现现在随着我们定义的东西越来越多 urls显得十分臃肿
+这里我们就可以用到include 方法
+
+就像前面我们说的
+    url(r'^captcha/', include('captcha.urls')),
+验证码 就是用的这个 如果我们 使用ctrl点击 这个captcha.urls  会发现 里面有很多url
+这样就可以显示的更好
+
+我们也可以自己在apps中写一个 urls
+所以我们先在 organization 中创建一个 urls.py 文件
+
+然后写法跟我们的 正常urls一样
+
+这是在apps中的urls
+from django.conf.urls import url, include
+from .views import OrgView,AddUserAskView
+
+app_name = 'organization'  #在django2.0 必须在这里添加一个 app_name= 就是包的名字 
+urlpatterns = [
+    # 课程机构列表页
+    url('^list/$', OrgView.as_view(), name='org_list'),
+    url('^add_ask/$',AddUserAskView.as_view(),name='add_ask')  #这里的写法都一样
+]
+然后就是在正常的urls下写
+#课程机构url配置
+    url(r'^org/', include('organization.urls',namespace='org')),
+namespace 是一个命名空间 可以和上面的name重复 但是具体还是不是特别了解 老师后面会讲到他的用途
+但是这里我们定义了一个org url
+在apps中有定义list or  add_ask 
+在前端 就会显示一个  http:127.0.0.1：8000/org/list  中间以斜线分割 
+
+这里我们定义了一个 add_ask url 来配置 用户咨询
+
+然后就是forms 表  
+上面我说过 这次我们要用新的方法来填写 forms
+以前我们都是继承forms.Form
+然后在写各个字段 例如
+class UserAskForm(forms.Form):
+    name = forms.CharField(required=True,min_length=2,max_length=20)
+    phone = forms.CharField(required=True,min_length=11,max_length=11)
+    course_name = forms.CharField(required=True,max_length=50,min_length=5)
+但是这部分内容跟我们在models中定义的东西十分类似 
+所以django提供了一个方法 就是继承我们model
+这里就是继承 forms.ModelForm
+然后我们只需要
+class UserAskForm(forms.ModelForm):
+    # my_filed = forms.CharField()  #同时也可以定义自己的models
+    class Meta:
+        model = UserAsk  #告诉它 我们继承的是那个 model
+        fields = ['name','mobile','course_name']  #然后需要这个models中的 那些字段
+
+    def clean_mobile(self):  #同样也可以 自定义验证方法 clean这个开头 就跟flask那个 vali..什么的一样 自动验证
+        """
+        验证手机号码是否合法
+        """
+        mobile = self.cleaned_data['mobile']    #这里是采用这个获取到 表单的mobile值 然后赋值
+        REGEX_MOBILE = "^1[358]\d{9}$|^147\d{8}$|^176\d{8}$"   这里是正则表达式
+        p = re.compile(REGEX_MOBILE)   # 这里是进行匹配
+        if p.match(mobile):  #如果匹配成功
+            return mobile  #就返回mobile
+        else:
+            raise forms.ValidationError(message='手机号码非法',code="mobile_invalid")#如错误 就引发一个错误
+
+这样就可以了 
+然后就是 views 视图的编写
+
+from django.http import HttpResponse
+
+class AddUserAskView(View):  
+    """
+    用户添加咨询
+    """
+
+    def post(self, request):#由于我们只是提交表单所以 只提供了 post方法
+        userask_form = UserAskForm(request.POST)  #这里同样 后去表单信息
+        if userask_form.is_valid():  #如果验证成功
+            user_ask = userask_form.save(commit=True) #这里直接就save  提交到数据库  这个方法只能modelForm才能用 十分方便 
+            return HttpResponse("{'status':'success'}", content_type='application/json') 
+        else:
+            # return HttpResponse("{'status':'fail','msg':{0}}".format(userask_form.errors),content_type='application/json')
+            return HttpResponse("{'status':'fail','msg':'添加出错'}", content_type='application/json')
+return HttpResponse("{'status':'success'}", content_type='application/json')
+这句话的意思就是 我们只是一个小块forms提交 不需要刷新页面 所以使用ajax异步
+所以这里返回的是json格式
+ HttpResponse("{'status':'success'}" 这里写的就是我们需要返回的内容
+ content_type='application/json'  这就是类型  这个就是请求头里面的 做过爬虫的一眼就会发现
+然后就是在前端编写 ajax
+{% block custom_js %}
+    <script>
+        $(function () {
+            $('#jsStayBtn').on('click', function () {
+                $.ajax({
+                    cache: false,
+                    type: "POST",
+                    url: "{% url 'org:add_ask' %}",
+                    data: $('#jsStayForm').serialize(),
+                    async: true,
+                    success: function (data) {
+                        console.log(data);
+                        alert(data);
+                        if (data.status === 'success') {
+                            $('#jsStayForm')[0].reset();
+                            alert("提交成功")
+                        } else if (data.status === 'fail') {
+                            $('#jsCompanyTips').html(data.msg);
+                        }
+                    }
+                })
+            })
+        })
+    </script>
+{% endblock %}
+
+这个一看就能懂 但是 就是在 
+if (data.status === 'success') {
+    $('#jsStayForm')[0].reset();
+    alert("提交成功")
+} else if (data.valueOf(status) === 'fail') {
+    $('#jsCompanyTips').html(data.msg);
+}
+这句话 就是显示成功 上次 我在flask编写的时候 也无法成功 最后使用了 flask自带的jsonify才可以
+pycharm提示 ajax 已经使用 === 代替了 == 但是 并没有任何作用
+data.status 就没有进行判断   然后我百度了一下 发现 必须这样写才行
+return HttpResponse(json.dumps({'status':'success'}), content_type='application/json')
+加入json.dumps转为dict格式
+但是老师同样向上面那样写就可以 可能版本问题
+
+这样就基本差不多了  哈哈
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

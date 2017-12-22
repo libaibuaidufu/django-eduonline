@@ -1,0 +1,99 @@
+这里开始写 我的课程 我的收藏
+就是我点击了学习 过后 课程会跟用户进行 关联  
+
+这里就是展示所有我点过学习的课程 
+
+创建html 继承 usercenter_base
+修改部分
+
+首先是配置url 
+# 我的课程
+    url('^mycourse/$', MyCourseViwe.as_view(), name='mycourse'),
+
+然后是写views
+
+class MyCourseViwe(LoginRequiredMixin, View):
+    """
+    我的课程
+    """
+
+    def get(self, request):
+        user_courses = UserCourse.objects.filter(user=request.user).all()
+        return render(request, 'usercenter-mycourse.html', {
+            'user_courses': user_courses,
+        })
+
+很简单 直接到数据库UserCourse中搜索 这个用户的所有课程 然后 再到前端部署
+
+
+由于这些很简单 我就全部都写在一堆了
+
+我收藏的机构、老师、公开课
+基本都是一样的查询方式
+# 我收藏的机构
+    url('^myfav_org/$', MyfavOrgView.as_view(), name='myfav_org'),
+
+    # 我收藏的老师
+    url('^myfav_teacher/$', MyfavTeacherView.as_view(), name='myfav_teacher'),
+
+    # 我收藏的课程
+    url('^myfav_course/$', MyfavCourseView.as_view(), name='myfav_course'),
+
+
+class MyfavOrgView(LoginRequiredMixin, View):
+    """
+    我收藏的机构
+    """
+
+    def get(self, request):
+        userfav_orgs = UserFacorite.objects.filter(user=request.user, fav_type=2) #获取全部用户收藏的机构
+        userfav_org_ids = [userfav_org.fav_id for userfav_org in userfav_orgs] #获取机构id
+        all_userfav_orgs = CourseOrg.objects.filter(id__in=userfav_org_ids) #然后把所有机构查询出来
+
+        return render(request, 'usercenter-fav-org.html', {
+            "all_userfav_orgs": all_userfav_orgs,
+        })
+
+class MyfavTeacherView(LoginRequiredMixin, View):
+    """
+    我收藏的老师
+    """
+
+    def get(self, request):
+        userfav_teachers = UserFacorite.objects.filter(user=request.user, fav_type=3)
+        userfav_teacher_ids = [userfav_teacher.fav_id for userfav_teacher in userfav_teachers]
+        all_userfav_teachers = Teacher.objects.filter(id__in=userfav_teacher_ids)
+
+        return render(request, 'usercenter-fav-teacher.html', {
+            "all_userfav_teachers": all_userfav_teachers,
+        })
+
+
+class MyfavCourseView(LoginRequiredMixin, View):
+    """
+    我收藏的课程
+    """
+
+    def get(self, request):
+        userfav_courses = UserFacorite.objects.filter(user=request.user, fav_type=1)
+        userfav_course_ids = [userfav_course.fav_id for userfav_course in userfav_courses]
+        all_userfav_courses = Course.objects.filter(id__in=userfav_course_ids)
+
+        return render(request, 'usercenter-fav-course.html', {
+            "all_userfav_courses": all_userfav_courses,
+        })
+
+
+这是我写的方式  跟教程不一样  但是基本逻辑的是一样的  
+
+
+
+
+
+
+
+
+
+
+
+

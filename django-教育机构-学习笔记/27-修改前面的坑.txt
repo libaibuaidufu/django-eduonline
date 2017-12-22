@@ -1,0 +1,64 @@
+前面收藏计数  还有很多计数没有写 这里写一下
+
+收藏 class AddFavView(View):
+在这个class 下面 
+
+中间加一个判断
+	exist_records = UserFacorite.objects.filter(user=request.user, fav_id=int(fav_id), fav_type=int(fav_type))
+        if exist_records:
+            # 如果记录已经存在，则表示用户取消收藏
+            exist_records.delete()
+            if int(fav_type) == 1:
+                course = Course.objects.get(id=int(fav_id))
+                course.fav_nums -= 1
+                if course.fav_nums < 0:
+                    course.fav_nums = 0
+                course.save()
+            elif int(fav_type) == 2:
+                course_org = CourseOrg.objects.get(id=int(fav_id))
+                course_org.fac_nums -= 1
+                if course_org.fav_nums < 0:
+                    course_org.fav_nums = 0
+                course_org.save()
+            elif int(fav_type) == 3:
+                teacher = Teacher.objects.get(id=int(fav_id))
+                teacher.fac_nums -= 1
+                if teacher.fav_nums < 0:
+                    teacher.fav_nums = 0
+                teacher.save()
+如果记录存在 表名用户想取消收藏
+
+然后我们就把计数减一 
+
+这样就要判断 用户收藏的是那种类型 到底是 老师 功课  机构
+
+然后在根据 model 进行搜索 然后计数减一 就可以了
+同时判断 如果计数小于0 了 就赋值为0
+
+避免出现负数
+
+既然有减 当然就有加
+如果用户进行收藏就进行加
+
+	user_fav = UserFacorite()
+            if int(fav_id) > 0 and int(fav_type) > 0:
+                user_fav.user = request.user
+                user_fav.fav_id = int(fav_id)
+                user_fav.fav_type = int(fav_type)
+                user_fav.save()
+
+                if int(fav_type) == 1:
+                    course = Course.objects.get(id=int(fav_id))
+                    course.fav_nums += 1
+                    course.save()
+                elif int(fav_type) == 2:
+                    course_org = CourseOrg.objects.get(id=int(fav_id))
+                    course_org.fac_nums += 1
+                    course_org.save()
+                elif int(fav_type) == 3:
+                    teacher = Teacher.objects.get(id=int(fav_id))
+                    teacher.fac_nums += 1
+                    teacher.save()
+
+
+

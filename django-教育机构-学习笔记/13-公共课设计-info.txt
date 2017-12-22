@@ -1,0 +1,85 @@
+这里就是 课程 介绍
+
+当用户点击了 开始学习 就进入到了课程 全部章节信息
+
+还是继承base
+ 
+然后看看前端需要显示一些什么内容
+
+课程基本信息
+
+章节 视频  讲师提醒  相关资源下载  
+还有一个功能 就是学过这个的同学还学过什么  这个留在后面写
+
+课程基本信息
+
+课程基本信息 的传入
+所以我们在 用户点击这个课程时 需要传来过一个course.id来给后台进行搜索
+后台get方法 得到这个 course_id
+        course = Course.objects.get(id=int(course_id))
+这样就得到课程基本信息
+
+然后就是章节信息  由于 章节有个外键连接到了课程  所以我们可以在课程中写一个方法
+models.py course 中的  
+    def get_course_lesson(self):
+        # 获取课程所有章节
+        return self.lesson_set.all()
+由于有外键  可以返回外键所有课程
+
+这样我们就可以直接在前端进行遍历了 一会讲解
+同样 视频连接外键  lesson 章节 我们又可以在 章节中写一个方法
+    def get_lesson_video(self):
+        return self.video_set.all()
+来获取所有视频
+
+这样 课程基本信息 和 章节 视频 都有了  
+
+然后就是相关资源下载
+
+这里我们写了一个models 叫CourseResource 
+他同样有一个外键连接 course
+我们可以直接搜索
+        all_resources = CourseResource.objects.filter(course=course)
+然后在前端遍历
+
+然后就是讲师提醒 同样 可以在models中 course中加入两个字段 学习该课程需要的知识  能学到的知识
+然后就是部署 利用外键 显示老师 
+
+
+然后就是学习过该课程的同学还学习过什么
+	user_cousers = UserCourse.objects.filter(course=course)  #从用户课程中搜索出所有学习过该课程的同学
+        user_ids = [user_couser.user.id for user_couser in user_cousers]   #利用遍历 找到所有同学的id 
+        all_user_courses = UserCourse.objects.filter(user_id__in=user_ids)  #这里就是关键了  django提供了一个user_id使用户id，然后加上双下划线__in就可以把列表user_ids方法过滤参数中，取出搜索学习过该课程的同学 还学习过那些课程
+        # 取出所有课程id
+        course_ids = [user_couser.course.id for user_couser in all_user_courses]  #然后取出所有课程的id
+        # 获取学过该课程的同学学过其他的课程
+        relate_courses = Course.objects.filter(id__in=course_ids).order_by('-click_nums')[:5] #然户就像排序
+最主要的就是__in的用法 
+
+写一写  lesson 外键的用方法
+{% for lesson in course.get_course_lesson %}
+    <div class="chapter chapter-active">
+        <h3>
+            <strong><i class="state-expand"></i>{{ lesson.name }}</strong>
+        </h3>
+        <ul class="video">
+            {% for video in lesson.get_lesson_video %}
+                <li>
+                    <a target="_blank" href='{% url 'courses:course_play' video.id %}'
+                       class="J-media-item studyvideo">
+                        {{ video.name }} ({{ video.learn_times }})
+                        <i class="study-state"></i>
+                    </a>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endfor %}
+
+就是循环变量  采用了 course.get_  来调用方法
+
+
+
+
+
+

@@ -1,0 +1,109 @@
+这次是写公开课详情页
+
+首先是前端html配置
+
+继承base
+
+然后修改一些 css js 文件
+
+然后就是定制course 中的 urls
+#课程详情页
+    url(r'^detail/(?P<course_id>\d+)/$',CourseDetailView.as_view(),name='course_detail'),
+然后就是写视图
+
+看看前端需要我们传入什么内容
+
+主要就是 课程的基本信息
+
+然后就是章节  视频 
+旁边的 相关资源下载
+讲师提醒 机构信息之类的
+
+还有一个功能 就是学过这个的同学还学过什么  这个留在后面写
+
+课程基本信息 的传入
+所以我们在 用户点击这个课程时 需要传来过一个course.id来给后台进行搜索
+后台get方法 得到这个 course_id
+        course = Course.objects.get(id=int(course_id))
+这样就得到课程基本信息
+  
+然后就是 相关推荐下载
+我们可以在models中  class Course(models.Model):
+ 在加一个字段 就是tag  作为一个标签
+搜索 其他有此标签的课程
+进行相关推荐
+	tag = course.tag
+        if tag:
+            relate_courses = Course.objects.filter(tag=tag)[:1]
+        else:
+            relate_courses = []
+首先获取该课程标签 然后进行 搜索  然后取出一个 
+然后返回 进行推荐   有没有可能 推荐到自己 呢  这倒是一个问题哈哈
+
+还有旁边的 机构信息
+机构信息 可以使用 course的外键 来直接填写 course.course_org.xxxx
+
+然后就是进行收藏  一个 机构收藏 一个课程收藏
+我们在前面org 中已经写了一个 add_fav 这里我们就用写了  可以直接调用
+
+直接部署部署ajax
+
+ //收藏分享
+        function add_fav(current_elem, fav_id, fav_type) {
+            $.ajax({
+                cache: false,
+                type: "POST",
+                url: "/org/add_fav/",
+                data: {'fav_id': fav_id, 'fav_type': fav_type},
+                async: true,
+                beforeSend: function (xhr, settings) {
+                    xhr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+                },
+                success: function (data) {
+                    if (data.status === 'fail') {
+                        if (data.msg === '用户未登录') {
+                            window.location.href = "{% url 'login' %}";
+                        } else {
+                            alert(data.msg)
+                        }
+
+                    } else if (data.status === 'success') {
+                        current_elem.text(data.msg)
+                    }
+                }
+            });
+        }
+
+        $('#jsLeftBtn').on('click', function () {    #这里是  课程还收藏 
+            add_fav($(this), {{ course.id }}, 1);
+        });
+
+        $('#jsRightBtn').on('click', function () {
+            add_fav($(this), {{ course.course_org.id }}, 2);   #这里是机构收藏  两个的id是不同的 fav_type也是不同的
+        }); 
+
+这里和上次的差不多
+方法也是一样  然后就是 显示问题 
+解决方法 跟前面一样
+
+	has_fav_course = False
+        has_fav_org = False
+
+        if request.user.is_authenticated:  #验证用户是否登录
+            if UserFacorite.objects.filter(user=request.user, fav_id=course.id, fav_type=1):
+                has_fav_course = True  #如果登录  并且 他的用户收藏中 有这个课程  就传入True 然后前端 就是用的 给用户显示已收藏
+            if UserFacorite.objects.filter(user=request.user, fav_id=course.course_org.id, fav_type=2):
+                has_fav_org = True
+False True  提供判断 给前端
+
+同时我们需要加上一个 点击数
+每当用户点击了课程 就加一次点击数
+course.click_nums += 1
+course.save()
+然后进行保存
+
+
+
+
+
+

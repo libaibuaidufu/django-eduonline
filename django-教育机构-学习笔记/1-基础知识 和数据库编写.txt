@@ -1,0 +1,195 @@
+首先是创建django项目
+
+我这里使用的py3.6  现在py上安装了 django
+然后使用pycharm 创建django项目  然后配置 虚拟环境 在安装需要的组件
+
+然后开始随机讲解一下哈哈
+
+首先创建 过后有很多目录有一个创建目录名  的文件夹
+这里面包含 __init__.py settings.py urls.py wsgi.py 
+目录外 还有templates 存放 html文件
+和一个manage.py 启动文件
+settings.py 这个py 里面就是django 的一些配置内容
+
+urls.py 就是注册视图用的 后面在详细讲解这些内容
+
+需要自己创建一个static 存放css和js等文件
+
+然后就是自己创建app包 来写视图 models  等一些东西
+创建 使用的是pycharm中Tools中的 run manage.py task 这个选项
+然后就可以在command 中输入 django 语言
+例如 创建app ： startapp  app名字  
+创建一个users app
+目录下有  __init__.py admin.py apps.py models.py tests.py views.py
+将几个 目前我使用过的
+models 就是编写数据库表的 地方
+然后views  应该就是写视图函数的地方
+admin  就是注册表 到  后台admin 系统中 
+django  有一个非常智能的后台系统  给你提供了很多表 如果你修改了一个可以在这里添加 但是新的django版本 好像不用他也能给你在后台显示哈哈
+都讲到后台了 我就说说 如果创建一个 超级管理员用户
+由于django 不会自动给创建一个 admin用户  所以需要我们在 Tools 中运行那个选项 然后在里面输入django命令
+创建超级用户：createsuperuser  不知道是不是这个 由于pycharm很智能 可以提醒你 差不多 
+创建时 会提醒你 输入 username email password repassword 信息
+然后就可以 在启动项目后  进入127.0.0.1:8000/admin/ 进入django 自己的 后台系统 
+进入进去 你会发现 怎么是英文的  这时候 你就需要修改一下了e
+进入 settings.py 中修改 
+LANGUAGE_CODE = 'zh-hans'        #这里改成 zh-hans 以前的版本1.7以前 是zh-CN 
+
+TIME_ZONE = 'Asia/Shanghai'     #该时区 不然 就会给你 弄成 国际时间
+
+USE_I18N = True
+
+USE_L10N = True
+
+USE_TZ = False            #设置为False 不然就是国际时间  哈哈
+
+然后就是 我们创建了 app包 也要在settings 中注册
+INSTALLED_APPS = [                      #找到这个选项
+    'django.contrib.admin',             #这些个  就是django自带的 admin包 
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'users',                            #这里添加了 我们的users  创建的app
+    "courses",
+    "organization",
+    "operation"
+]
+AUTH_USER_MODEL = "users.UserProfile"
+由于我们 修改了django 自带的 users表 所以 这里添加一个 users.UserProfile  前面是app包名，后面是类的名字
+
+
+然后就开始我们的数据库编写   我就讲解一下 我目前用到的
+首先就是 要连接数据库 我们这里使用的mysql 数据库
+同样是在 settings中配置
+DATABASES = {              #找到DATABASES这个选项
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',            #引擎 这里后面改为mysql
+        # 'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'NAME': "mxonline",             #数据库名
+        "USER": "root",                  #用户
+        'PASSWORD': "950916",          #密码
+        "HOST": "127.0.0.1",         #host
+    }
+}
+
+然后就是 users 中的 models
+首先创建一个 UserProfile
+from django.contrib.auth.models import AbstractUser
+
+class UserProfile(AbstractUser):         # AbstractUser 这里是继承django的user表  
+    nick_name = models.CharField(max_length=50, verbose_name=u"昵称", default="")    
+    birday = models.DateField(verbose_name=u"生日", null=True, blank=True)
+    gender = models.CharField(max_length=6, choices=(("male", "男"), ("female", u"女")), default='female')
+    address = models.CharField(max_length=100, default=u"")
+    mobile = models.CharField(max_length=11, null=True, blank=True)
+    image = models.ImageField(upload_to="image/%Y/%m", default=u"image/default.png", max_length=100)
+
+    class Meta:
+        verbose_name = "用户信息"
+        verbose_name_plural = verbose_name
+
+    def __unicode__(self):
+        return self.username
+
+这里我就讲讲 django 和flask的不同  
+nick_name = models.CharField(max_length=50, verbose_name=u"昵称", default="")  类似StringField 设置最大长度50字符，默认为空，verbose_name就是一个注释名
+django提供了 很多Field选择 比flask多  每一个CharField必须有一个max_length参数
+上面birday 中的 null=True, blank=True  就是可以允许 这个字段为空
+
+gender = models.CharField(max_length=6, choices=(("male", "男"), ("female", u"女")), default='female')
+这个字段 就是类似SeleterFiled  单选框 哈哈 忘了是不是单选框 还是 选择框 哈哈
+
+image = models.ImageField(upload_to="image/%Y/%m", default=u"image/default.png", max_length=100)
+这里的还有ImageField字段 upload_to 就是上传到 这个目录下 后面跟着的 天和时间     如果用户没有就默认使用这个目下的 自定义头像
+
+    class Meta:
+        verbose_name = "用户信息"           #避免产生复数
+        verbose_name_plural = verbose_name #这里如果不加上这句 就会出现 用户信息s 这里的s 不是笔误哦 哈哈
+这个元类的继承吧  我看看官方文档 还有很多参数  以后研究一下
+里面还有两个 比较简单的
+db_table =  “xx”  设置表的名称  如果 你不添加 django 就会给你设置为  app包加类的名 泪如 users_userprofile 这个表名 哈哈
+ordering =   这个参数 # ordering = "-object_id" #排序 通过 object_id 倒叙排序 前面的 -   这个object_id 是定义的一个字段 也可以设置为birday、nick_name等
+
+email = models.EmailField(max_length=50, verbose_name=u"邮箱")
+url = models.URLField(max_length=200, verbose_name="访问地址")
+
+django的 验证email字段的提供的方法  还有url的 真的是很多方法 哈哈
+
+还有很多等着我去学习 哈哈
+
+下面讲解一下 不是修改自带表的
+如果是我们自己创建的表 这里 我们又创建了一个 courses app包 
+class Course(models.Model):        #如果不是修改自带表 继承的就是models.Model
+    detail = models.TextField(verbose_name=u"课程详情")
+TextField域
+    course = models.ForeignKey(Course,on_delete=models.CASCADE, verbose_name="课程名")
+这里是设置外键  on_delete 似乎是必须的一个字段 不然在创建数据时  会报错 
+这里是中文文档 对于on_delete的解释
+当一个ForeignKey 引用的对象被删除时，Django 默认模拟SQL 的ON DELETE CASCADE 的约束行为，并且删除包含该ForeignKey的对象。
+这种行为可以通过设置on_delete 参数来改变。
+例如，如果你有一个可以为空的ForeignKey，在其引用的对象被删除的时你想把这个ForeignKey 设置为空：
+on_delete = models.CASCADE 这个填写的是这个  他还有很多个参数以后
+CASCADE   级联删除；默认值。
+PROTECT  抛出ProtectedError 以阻止被引用对象的删除，它是django.db.IntegrityError 的一个子类。
+SET_NULL     把ForeignKey 设置为null； null 参数为True 时才可以这样做。
+SET_DEFAULT       ForeignKey 值设置成它的默认值；此时必须设置ForeignKey 的default 参数。
+SET()  设置ForeignKey 为传递给SET() 的值，如果传递的是一个可调用对象，则为调用后的结果。在大部分情形下，传递一个可调用对象用于避免models.py 在导入时执行查询：
+DO_NOTHING       不采取任何动作。如果你的数据库后端强制引用完整性，它将引发一个IntegrityError ，除非你手动添加一个ON DELETE 约束给数据库自动（可能要用到初始化的SQL）。
+这么几个参数 哈哈
+然后就是 创建数据了 
+还是在Tools中运行task
+然后输入 makemigrations 对比所有数据表
+如果没有报错
+就输入 migrate  创建表  就完成了  可以使用mysql 的可视化软件去看看  Nacicat for mysql 
+如果有保存 那就 可能是以前创建了表  把所有表删除了 在 来运行一边  哈哈
+
+这里数据的编写 还有逻辑问题 比如外键问题  这里的django 没有flask好理解  可能弄懂了 就好理解了饿哈哈
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

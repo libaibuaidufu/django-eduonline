@@ -1,0 +1,156 @@
+同样是用弹窗处理 不需要 定义页面
+
+还是那个套路 配置url 写views
+
+urls
+# 发送邮箱验证码
+    url('^sendemail_code/$', SendEmailCodeView.as_view(), name='sendemail_code'),
+
+    # 修改邮箱
+    url('^update_email/$', UpdateEmailView.as_view(), name='update_email'),
+
+这里有两个url 一个是完成更新邮箱的功能 另一个就是给邮箱发送验证码 好确认邮箱
+
+首先我们写的是发送验证码
+class SendEmailCodeView(LoginRequiredMixin, View):
+    """
+    发送邮箱验证码
+    """
+
+    def get(self, request):
+        email = request.GET.get('email', '')
+
+        if UserProfile.objects.filter(email=email):
+            return HttpResponse(json.dumps({'status': 'fail', 'email': '邮箱已经存在'}), content_type='application/json')
+        send_register_email(email, "update_email")
+        return HttpResponse(json.dumps({'status': 'success', 'msg': '修改成功'}), content_type='application/json')
+当用户输入邮箱后 点击 获取验证码
+
+然后获取用户email 进行数据库搜索
+如果数据库中有 就说  邮箱已经存在
+如果没有 就该这个邮箱发送code 
+
+这里我们还要再在model中添加一个样式 以前只有 忘记密码 和注册 现在添加一个 修改update_email
+
+同样还要在send_register_email 中添加这个样式的发送邮箱的格式
+
+    if send_type == "update_email":
+        code = random_str(4)
+    else:
+        code = random_str(16)
+这里的code 不用那么长  只需要四位就够了
+
+    elif send_type == 'update_email':
+        email_title = "幕学在线网修改邮箱验证码"
+        email_body = "你的邮箱验证码:{0}".format(code)
+	
+        send_status = send_mail(email_title, email_body, EMAIL_FROM, [email])
+        if send_status:
+            pass
+
+然后用户得到了验证码 填写了 进行提交 后台要进行验证
+
+class UpdateEmailView(LoginRequiredMixin, View):
+    """
+    修改个人邮箱
+    """
+
+    def post(self, request):
+        email = request.POST.get('email', "")  #获取email 和 code
+        code = request.POST.get('code', "")
+	
+	#下面这句 就是看看验证邮箱的model中是否有这个记录  
+        existed_records = EmailVerifyRecord.objects.filter(code=code, email=email, send_type='update_email') 
+        if existed_records:  #如果存在 就行保存
+            user = request.user
+            user.email = email
+            user.save()
+            return HttpResponse(json.dumps({'status': 'success', 'msg': '修改成功'}), content_type='application/json')
+
+        else:
+            return HttpResponse(json.dumps({'status': 'fail', 'email': '验证码出错'}), content_type='application/json')
+
+这样基本修改邮箱就搞定了
+然后就是ajax 部分 我们来看看吧
+//修改个人中心邮箱验证码
+function sendCodeChangeEmail($btn){
+    var verify = verifyDialogSubmit(
+        [
+          {id: '#jsChangeEmail', tips: Dml.Msg.epMail, errorTips: Dml.Msg.erMail, regName: 'email', require: true}
+        ]
+    );
+    if(!verify){
+       return;
+    }
+    $.ajax({
+        cache: false,
+        type: "get",
+        dataType:'json',
+        url:"/users/sendemail_code/",
+        data:$('#jsChangeEmailForm').serialize(),
+        async: true,
+        beforeSend:function(XMLHttpRequest){
+            $btn.val("发送中...");
+            $btn.attr('disabled',true);
+        },
+        success: function(data){
+            if(data.email){
+                Dml.fun.showValidateError($('#jsChangeEmail'), data.email);
+            }else if(data.status == 'success'){
+                Dml.fun.showErrorTips($('#jsChangeEmailTips'), "邮箱验证码已发送");
+            }else if(data.status == 'fail'){
+                 Dml.fun.showValidateError($('#jsChangeEmail'), "邮箱验证码发送失败");
+            }else if(data.status == 'success'){
+            }
+        },
+        complete: function(XMLHttpRequest){
+            $btn.val("获取验证码");
+            $btn.removeAttr("disabled");
+        }
+    });
+
+}
+就是一样发送 是否成功的 显示
+
+
+//个人资料邮箱修改
+function changeEmailSubmit($btn){
+var verify = verifyDialogSubmit(
+        [
+          {id: '#jsChangeEmail', tips: Dml.Msg.epMail, errorTips: Dml.Msg.erMail, regName: 'email', require: true},
+        ]
+    );
+    if(!verify){
+       return;
+    }
+    $.ajax({
+        cache: false,
+        type: 'post',
+        dataType:'json',
+        url:"/users/update_email/ ",
+        data:$('#jsChangeEmailForm').serialize(),
+        async: true,
+        beforeSend:function(XMLHttpRequest){
+            $btn.val("发送中...");
+            $btn.attr('disabled',true);
+            $("#jsChangeEmailTips").html("验证中...").show(500);
+        },
+        success: function(data) {
+            if(data.email){
+                Dml.fun.showValidateError($('#jsChangeEmail'), data.email);
+            }else if(data.status == "success"){
+                Dml.fun.showErrorTips($('#jsChangePhoneTips'), "邮箱信息更新成功");
+                setTimeout(function(){location.reload();},1000);
+            }else{
+                 Dml.fun.showValidateError($('#jsChangeEmail'), "邮箱信息更新失败");
+            }
+        },
+        complete: function(XMLHttpRequest){
+            $btn.val("完成");
+            $btn.removeAttr("disabled");
+        }
+    });
+}
+这里就是发送email 和code 到后台
+
+下一篇 就是关于用户的收藏 很简单

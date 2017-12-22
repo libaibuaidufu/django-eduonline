@@ -1,0 +1,22 @@
+登出功能 很简单就设置了
+
+我们主要是利用django提供的一个logout函数
+
+登出 也不用写页面
+
+然后就是 配置urls
+    url('^logout/$', LogoutView.as_view(), name='logout'),
+
+写views
+from django.contrib.auth import authenticate, login, logout
+
+class LogoutView(View):
+    def get(self, request):
+        logout(request)  #直接就登出了
+        from django.urls import reverse  #django 2 和django 1.9 导入的reverse方式不同
+        return HttpResponseRedirect(reverse('index'))  #这里就相当于重定向 然后reverse反向解析url index就是我们的name
+
+
+然后在每个base中写好登出的url
+
+
